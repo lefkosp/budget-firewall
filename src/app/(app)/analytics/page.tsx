@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/app/PageHeader";
+import { EmptyState } from "@/components/app/EmptyState";
+import { formatCurrency } from "@/lib/format";
 import {
   calculateTransactionTypeStats,
   calculateProductStats,
@@ -63,18 +66,16 @@ export default function AnalyticsPage() {
     fetchData();
   }, []);
 
-  const formatAmount = (cents: number, currency: string) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency || "EUR",
-      minimumFractionDigits: 2,
-    }).format(cents / 100);
-  };
+  const formatAmount = formatCurrency;
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-muted-foreground">Loading analytics...</div>
+      <div className="h-full flex flex-col p-8 overflow-hidden space-y-6">
+        <Skeleton className="h-9 w-48" />
+        <div className="grid gap-6 md:grid-cols-2">
+          <Skeleton className="h-72 w-full" />
+          <Skeleton className="h-72 w-full" />
+        </div>
       </div>
     );
   }
@@ -82,21 +83,11 @@ export default function AnalyticsPage() {
   if (transactions.length === 0) {
     return (
       <div className="h-full flex flex-col p-8 overflow-hidden">
-        <div className="flex-shrink-0 mb-6">
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
-            Analytics
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Comprehensive financial analytics and insights
-          </p>
-        </div>
-        <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground mb-6 text-lg">
-              No transactions available for analytics
-            </p>
-          </CardContent>
-        </Card>
+        <PageHeader
+          title="Analytics"
+          description="Comprehensive financial analytics and insights"
+        />
+        <EmptyState title="No transactions available for analytics" />
       </div>
     );
   }
@@ -114,14 +105,10 @@ export default function AnalyticsPage() {
 
   return (
     <div className="h-full flex flex-col p-8 overflow-hidden">
-      <div className="flex-shrink-0 mb-6">
-        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
-          Analytics
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Comprehensive financial analytics and insights
-        </p>
-      </div>
+      <PageHeader
+        title="Analytics"
+        description="Comprehensive financial analytics and insights"
+      />
 
       <div className="flex-1 overflow-auto space-y-8">
         {/* Transaction Type Analytics */}
