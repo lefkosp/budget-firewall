@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/app/PageHeader";
 
 export default function ConnectPage() {
   const router = useRouter();
@@ -35,7 +37,7 @@ export default function ConnectPage() {
       }
     } catch (error: any) {
       console.error("Error connecting:", error);
-      alert(error.message || "Failed to connect. Please try again.");
+      toast.error(error.message || "Failed to connect. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -47,11 +49,11 @@ export default function ConnectPage() {
       const data = await api.post<{ imported: number; new: number; accounts: number }>(
         "/api/banking/sync"
       );
-      alert(`Sync complete! Imported ${data.imported} transactions (${data.new} new).`);
+      toast.success(`Sync complete! Imported ${data.imported} transactions (${data.new} new).`);
       router.push("/dashboard");
     } catch (error: any) {
       console.error("Error syncing:", error);
-      alert(error.message || "Failed to sync. Please try again.");
+      toast.error(error.message || "Failed to sync. Please try again.");
     } finally {
       setSyncing(false);
     }
@@ -59,14 +61,10 @@ export default function ConnectPage() {
 
   return (
     <div className="h-full flex flex-col p-8 overflow-hidden">
-      <div className="flex-shrink-0 mb-6">
-        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
-          Connect Revolut
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Connect your Revolut account to start tracking transactions
-        </p>
-      </div>
+      <PageHeader
+        title="Connect Revolut"
+        description="Connect your Revolut account to start tracking transactions"
+      />
 
       <div className="flex-1 overflow-auto space-y-8">
 
