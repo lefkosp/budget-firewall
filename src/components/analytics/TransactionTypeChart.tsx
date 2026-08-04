@@ -3,22 +3,12 @@
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TransactionTypeStats } from "@/lib/analytics/calculate";
+import { CHART_COLORS } from "@/lib/chartColors";
 
 interface TransactionTypeChartProps {
   data: TransactionTypeStats[];
   formatAmount: (cents: number, currency: string) => string;
 }
-
-const COLORS = [
-  "#8884d8",
-  "#82ca9d",
-  "#ffc658",
-  "#ff7300",
-  "#00ff00",
-  "#0088fe",
-  "#ff00ff",
-  "#00ffff",
-];
 
 export function TransactionTypePieChart({
   data,
@@ -47,13 +37,13 @@ export function TransactionTypePieChart({
                 `${name}: ${(percent * 100).toFixed(0)}%`
               }
               outerRadius={80}
-              fill="#8884d8"
+              fill="var(--chart-1)"
               dataKey="value"
             >
               {chartData.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={COLORS[index % COLORS.length]}
+                  fill={CHART_COLORS[index % CHART_COLORS.length]}
                 />
               ))}
             </Pie>
@@ -90,7 +80,7 @@ export function TransactionTypeBarChart({
               formatter={(value: number) => formatAmount(value * 100, "EUR")}
             />
             <Legend />
-            <Bar dataKey="spend" fill="#8884d8" name="Total Spend" />
+            <Bar dataKey="spend" fill="var(--chart-1)" name="Total Spend" />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

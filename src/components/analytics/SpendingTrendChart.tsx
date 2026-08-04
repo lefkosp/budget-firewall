@@ -50,7 +50,7 @@ export function DailySpendingChart({
             <Line
               type="monotone"
               dataKey="amount"
-              stroke="#8884d8"
+              stroke="var(--chart-1)"
               name="Daily Spend"
             />
           </LineChart>
@@ -92,7 +92,7 @@ export function WeeklySpendingChart({
             <YAxis />
             <Tooltip />
             <Legend />
-            <Bar dataKey="transactions" fill="#82ca9d" name="Transactions" />
+            <Bar dataKey="transactions" fill="var(--chart-2)" name="Transactions" />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
@@ -127,7 +127,7 @@ export function MonthlySpendingChart({
             <Line
               type="monotone"
               dataKey="amount"
-              stroke="#ffc658"
+              stroke="var(--chart-3)"
               name="Monthly Spend"
             />
           </LineChart>

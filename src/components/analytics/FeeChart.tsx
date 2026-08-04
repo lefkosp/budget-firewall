@@ -65,7 +65,7 @@ export function FeeTrendsChart({
             <Line
               type="monotone"
               dataKey="fee"
-              stroke="#ff7300"
+              stroke="var(--chart-4)"
               name="Fee"
             />
           </LineChart>
@@ -116,7 +116,7 @@ export function FeesByTypeChart({
               formatter={(value: number) => formatAmount(value * 100, "EUR")}
             />
             <Legend />
-            <Bar dataKey="fee" fill="#ff7300" name="Total Fees" />
+            <Bar dataKey="fee" fill="var(--chart-4)" name="Total Fees" />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

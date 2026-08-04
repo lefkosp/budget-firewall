@@ -50,8 +50,8 @@ export function BalanceOverTimeChart({
             <Area
               type="monotone"
               dataKey="balance"
-              stroke="#8884d8"
-              fill="#8884d8"
+              stroke="var(--chart-1)"
+              fill="var(--chart-1)"
               fillOpacity={0.3}
               name="Balance"
             />
@@ -91,8 +91,8 @@ export function BalanceByProductChart({
             <Area
               type="monotone"
               dataKey="balance"
-              stroke="#82ca9d"
-              fill="#82ca9d"
+              stroke="var(--chart-2)"
+              fill="var(--chart-2)"
               fillOpacity={0.3}
               name="Balance"
             />

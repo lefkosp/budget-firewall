@@ -15,13 +15,12 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProductStats } from "@/lib/analytics/calculate";
+import { CHART_COLORS } from "@/lib/chartColors";
 
 interface ProductChartProps {
   data: ProductStats[];
   formatAmount: (cents: number, currency: string) => string;
 }
-
-const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff7300"];
 
 export function ProductDonutChart({
   data,
@@ -51,13 +50,13 @@ export function ProductDonutChart({
               }
               outerRadius={80}
               innerRadius={40}
-              fill="#8884d8"
+              fill="var(--chart-1)"
               dataKey="value"
             >
               {chartData.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={COLORS[index % COLORS.length]}
+                  fill={CHART_COLORS[index % CHART_COLORS.length]}
                 />
               ))}
             </Pie>
@@ -94,7 +93,7 @@ export function ProductComparisonChart({
               formatter={(value: number) => formatAmount(value * 100, "EUR")}
             />
             <Legend />
-            <Bar dataKey="spend" fill="#8884d8" name="Total Spend" />
+            <Bar dataKey="spend" fill="var(--chart-1)" name="Total Spend" />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>

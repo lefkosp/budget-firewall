@@ -15,22 +15,12 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CategoryStats } from "@/lib/analytics/calculate";
+import { stableChartColor } from "@/lib/chartColors";
 
 interface CategoryChartProps {
   data: CategoryStats[];
   formatAmount: (cents: number, currency: string) => string;
 }
-
-const COLORS = [
-  "#8884d8",
-  "#82ca9d",
-  "#ffc658",
-  "#ff7300",
-  "#00ff00",
-  "#0088fe",
-  "#ff00ff",
-  "#00ffff",
-];
 
 export function CategoryBarChart({
   data,
@@ -58,7 +48,7 @@ export function CategoryBarChart({
               formatter={(value: number) => formatAmount(value * 100, "EUR")}
             />
             <Legend />
-            <Bar dataKey="spend" fill="#8884d8" name="Total Spend" />
+            <Bar dataKey="spend" fill="var(--chart-1)" name="Total Spend" />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
@@ -94,13 +84,13 @@ export function CategoryPieChart({
                 `${name}: ${(percent * 100).toFixed(0)}%`
               }
               outerRadius={80}
-              fill="#8884d8"
+              fill="var(--chart-1)"
               dataKey="value"
             >
-              {chartData.map((entry, index) => (
+              {chartData.map((entry) => (
                 <Cell
-                  key={`cell-${index}`}
-                  fill={COLORS[index % COLORS.length]}
+                  key={`cell-${entry.name}`}
+                  fill={stableChartColor(entry.name)}
                 />
               ))}
             </Pie>

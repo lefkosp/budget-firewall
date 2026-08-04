@@ -46,7 +46,7 @@ export function TopMerchantsBySpendChart({
               formatter={(value: number) => formatAmount(value * 100, "EUR")}
             />
             <Legend />
-            <Bar dataKey="spend" fill="#8884d8" name="Total Spend" />
+            <Bar dataKey="spend" fill="var(--chart-1)" name="Total Spend" />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
@@ -80,7 +80,7 @@ export function TopMerchantsByFrequencyChart({
             <YAxis />
             <Tooltip />
             <Legend />
-            <Bar dataKey="count" fill="#82ca9d" name="Transaction Count" />
+            <Bar dataKey="count" fill="var(--chart-2)" name="Transaction Count" />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
