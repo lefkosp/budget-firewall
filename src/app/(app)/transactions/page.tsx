@@ -1,16 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ColumnDef, HeaderContext, OnChangeFn, SortingState } from "@tanstack/react-table";
 import { api } from "@/lib/api";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,8 +19,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ArrowUpDown, Filter, X, ChevronDown, ChevronUp } from "lucide-react";
 import { Pagination } from "@/components/ui/pagination";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Money } from "@/components/app/Money";
+import { StatusBadge } from "@/components/app/StatusBadge";
+import { CategoryBadge } from "@/components/app/CategoryBadge";
+import { PageHeader } from "@/components/app/PageHeader";
+import { DataTable } from "@/components/app/DataTable";
+import { TransactionDrawer } from "@/components/app/TransactionDrawer";
 
-interface Transaction {
+export interface Transaction {
   id: string;
   bookedAt: string;
   amount: number;
@@ -49,6 +49,119 @@ interface Transaction {
   };
 }
 
+function sortableHeader(label: string) {
+  return function Header({ column }: HeaderContext<Transaction, unknown>) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 -ml-3"
+        onClick={column.getToggleSortingHandler()}
+      >
+        {label}
+        <ArrowUpDown className="ml-2 h-3 w-3" />
+      </Button>
+    );
+  };
+}
+
+const columns: ColumnDef<Transaction, unknown>[] = [
+  {
+    id: "bookedAt",
+    header: sortableHeader("Date"),
+    cell: ({ row }) => (
+      <span className="text-muted-foreground">
+        {new Date(row.original.bookedAt).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })}
+      </span>
+    ),
+  },
+  {
+    id: "merchantNameNormalized",
+    header: sortableHeader("Merchant"),
+    cell: ({ row }) => (
+      <span className="font-medium">
+        {row.original.merchantNameNormalized || row.original.rawDescription}
+      </span>
+    ),
+  },
+  {
+    id: "amount",
+    header: sortableHeader("Amount"),
+    cell: ({ row }) => (
+      <Money
+        cents={row.original.amount}
+        currency={row.original.currency}
+        variant={row.original.amount < 0 ? "spend" : "income"}
+        signDisplay={row.original.amount >= 0}
+        className="font-semibold"
+      />
+    ),
+  },
+  {
+    id: "computedCategory",
+    header: sortableHeader("Category"),
+    cell: ({ row }) => <CategoryBadge category={row.original.computedCategory} />,
+  },
+  {
+    id: "transactionType",
+    header: sortableHeader("Type"),
+    cell: ({ row }) => (
+      <span className="text-muted-foreground text-sm">
+        {row.original.transactionType || "-"}
+      </span>
+    ),
+  },
+  {
+    id: "product",
+    header: sortableHeader("Product"),
+    cell: ({ row }) => (
+      <span className="text-muted-foreground text-sm">{row.original.product || "-"}</span>
+    ),
+  },
+  {
+    id: "balance",
+    header: "Balance",
+    cell: ({ row }) =>
+      row.original.balance !== undefined ? (
+        <Money cents={row.original.balance} currency={row.original.currency} />
+      ) : (
+        <span className="text-muted-foreground text-sm">-</span>
+      ),
+  },
+  {
+    id: "flags",
+    header: "Flags",
+    cell: ({ row }) => (
+      <div className="flex gap-1 flex-wrap">
+        {row.original.isGambling && (
+          <Badge variant="destructive" className="text-xs">
+            Gambling
+          </Badge>
+        )}
+        {row.original.isCrypto && (
+          <Badge variant="destructive" className="text-xs">
+            Crypto
+          </Badge>
+        )}
+        {row.original.isBlacklisted && (
+          <Badge variant="destructive" className="text-xs">
+            Blacklisted
+          </Badge>
+        )}
+      </div>
+    ),
+  },
+  {
+    id: "approvalStatus",
+    header: "Status",
+    cell: ({ row }) => <StatusBadge status={row.original.approvalStatus} />,
+  },
+];
+
 interface TransactionsResponse {
   data: Transaction[];
   pagination: {
@@ -63,6 +176,7 @@ export default function TransactionsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
@@ -170,6 +284,17 @@ export default function TransactionsPage() {
     updateFilters({ page });
   };
 
+  const sorting: SortingState = useMemo(
+    () => [{ id: filters.sortBy, desc: filters.sortOrder === "desc" }],
+    [filters.sortBy, filters.sortOrder]
+  );
+
+  const handleSortingChange: OnChangeFn<SortingState> = (updater) => {
+    const next = typeof updater === "function" ? updater(sorting) : updater;
+    const [{ id, desc } = { id: "bookedAt", desc: true }] = next;
+    updateFilters({ sortBy: id, sortOrder: desc ? "desc" : "asc" });
+  };
+
   const clearFilters = () => {
     const cleared = {
       status: "",
@@ -189,52 +314,6 @@ export default function TransactionsPage() {
     };
     setFilters(cleared);
     router.replace("/transactions", { scroll: false });
-  };
-
-  const formatAmount = (cents: number, currency: string) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency || "EUR",
-      minimumFractionDigits: 2,
-    }).format(cents / 100);
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "VIOLATION":
-        return (
-          <Badge
-            variant="destructive"
-            className="bg-destructive/20 text-destructive border-destructive/50"
-          >
-            Violation
-          </Badge>
-        );
-      case "PENDING":
-        return (
-          <Badge
-            variant="outline"
-            className="border-accent/50 text-accent"
-          >
-            Pending
-          </Badge>
-        );
-      case "APPROVED":
-        return (
-          <Badge
-            variant="default"
-            className="bg-primary/20 text-primary border-primary/50"
-          >
-            Approved
-          </Badge>
-        );
-      default:
-        return (
-          <Badge variant="secondary" className="bg-secondary/50">
-            Neutral
-          </Badge>
-        );
-    }
   };
 
   const activeFilterCount =
@@ -257,55 +336,57 @@ export default function TransactionsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-muted-foreground">Loading...</div>
+      <div className="h-full flex flex-col p-8 overflow-hidden space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-9 w-48" />
+          <Skeleton className="h-9 w-24" />
+        </div>
+        <Skeleton className="h-full w-full" />
       </div>
     );
   }
 
   return (
     <div className="h-full flex flex-col p-8 overflow-hidden">
-      <div className="flex items-center justify-between mb-6 flex-shrink-0">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
-            Transactions
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            {pagination.total > 0 ? (
-              <>
-                Showing {(pagination.page - 1) * pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} transaction{pagination.total !== 1 ? "s" : ""}
-              </>
-            ) : (
-              "No transactions found"
-            )}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setShowFilters(!showFilters)}
-            className="border-border/50 hover:bg-accent/20"
-          >
-            <Filter className="mr-2 h-4 w-4" />
-            Filters
-            {activeFilterCount > 0 && (
-              <Badge variant="secondary" className="ml-2 bg-primary text-primary-foreground">
-                {activeFilterCount}
-              </Badge>
-            )}
-          </Button>
-          {activeFilterCount > 0 && (
+      <PageHeader
+        title="Transactions"
+        description={
+          pagination.total > 0 ? (
+            <>
+              Showing {(pagination.page - 1) * pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} transaction{pagination.total !== 1 ? "s" : ""}
+            </>
+          ) : (
+            "No transactions found"
+          )
+        }
+        actions={
+          <>
             <Button
               variant="outline"
-              onClick={clearFilters}
-              className="border-border/50 hover:bg-destructive/20 hover:text-destructive"
+              onClick={() => setShowFilters(!showFilters)}
+              className="border-border/50 hover:bg-accent/20"
             >
-              <X className="mr-2 h-4 w-4" />
-              Clear
+              <Filter className="mr-2 h-4 w-4" />
+              Filters
+              {activeFilterCount > 0 && (
+                <Badge variant="secondary" className="ml-2 bg-primary text-primary-foreground">
+                  {activeFilterCount}
+                </Badge>
+              )}
             </Button>
-          )}
-        </div>
-      </div>
+            {activeFilterCount > 0 && (
+              <Button
+                variant="outline"
+                onClick={clearFilters}
+                className="border-border/50 hover:bg-destructive/20 hover:text-destructive"
+              >
+                <X className="mr-2 h-4 w-4" />
+                Clear
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {/* Quick Filter Buttons */}
       <div className="flex gap-2 flex-wrap mb-6 flex-shrink-0">
@@ -540,199 +621,13 @@ export default function TransactionsPage() {
         <Card className="border-border/50 bg-card/50 backdrop-blur-sm flex-1 flex flex-col overflow-hidden">
           <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
             <div className="overflow-auto flex-1">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-border/50">
-                    <TableHead className="text-muted-foreground">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 -ml-3"
-                        onClick={() =>
-                          updateFilters({
-                            sortBy: "bookedAt",
-                            sortOrder:
-                              filters.sortBy === "bookedAt" && filters.sortOrder === "desc"
-                                ? "asc"
-                                : "desc",
-                          })
-                        }
-                      >
-                        Date
-                        <ArrowUpDown className="ml-2 h-3 w-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-muted-foreground">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 -ml-3"
-                        onClick={() =>
-                          updateFilters({
-                            sortBy: "merchantNameNormalized",
-                            sortOrder:
-                              filters.sortBy === "merchantNameNormalized" &&
-                              filters.sortOrder === "desc"
-                                ? "asc"
-                                : "desc",
-                          })
-                        }
-                      >
-                        Merchant
-                        <ArrowUpDown className="ml-2 h-3 w-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-muted-foreground">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 -ml-3"
-                        onClick={() =>
-                          updateFilters({
-                            sortBy: "amount",
-                            sortOrder:
-                              filters.sortBy === "amount" && filters.sortOrder === "desc"
-                                ? "asc"
-                                : "desc",
-                          })
-                        }
-                      >
-                        Amount
-                        <ArrowUpDown className="ml-2 h-3 w-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-muted-foreground">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 -ml-3"
-                        onClick={() =>
-                          updateFilters({
-                            sortBy: "computedCategory",
-                            sortOrder:
-                              filters.sortBy === "computedCategory" &&
-                              filters.sortOrder === "desc"
-                                ? "asc"
-                                : "desc",
-                          })
-                        }
-                      >
-                        Category
-                        <ArrowUpDown className="ml-2 h-3 w-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-muted-foreground">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 -ml-3"
-                        onClick={() =>
-                          updateFilters({
-                            sortBy: "transactionType",
-                            sortOrder:
-                              filters.sortBy === "transactionType" &&
-                              filters.sortOrder === "desc"
-                                ? "asc"
-                                : "desc",
-                          })
-                        }
-                      >
-                        Type
-                        <ArrowUpDown className="ml-2 h-3 w-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-muted-foreground">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 -ml-3"
-                        onClick={() =>
-                          updateFilters({
-                            sortBy: "product",
-                            sortOrder:
-                              filters.sortBy === "product" &&
-                              filters.sortOrder === "desc"
-                                ? "asc"
-                                : "desc",
-                          })
-                        }
-                      >
-                        Product
-                        <ArrowUpDown className="ml-2 h-3 w-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-muted-foreground">Balance</TableHead>
-                    <TableHead className="text-muted-foreground">Flags</TableHead>
-                    <TableHead className="text-muted-foreground">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transactions.map((tx) => (
-                    <TableRow
-                      key={tx.id}
-                      className="border-border/50 hover:bg-accent/5 transition-colors"
-                    >
-                      <TableCell className="text-muted-foreground">
-                        {new Date(tx.bookedAt).toLocaleDateString("en-US", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {tx.merchantNameNormalized || tx.rawDescription}
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={
-                            tx.amount < 0
-                              ? "text-destructive font-semibold"
-                              : "text-primary font-semibold"
-                          }
-                        >
-                          {formatAmount(tx.amount, tx.currency)}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="bg-secondary/50">
-                          {tx.computedCategory}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {tx.transactionType || "-"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {tx.product || "-"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {tx.balance !== undefined
-                          ? formatAmount(tx.balance, tx.currency)
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 flex-wrap">
-                          {tx.isGambling && (
-                            <Badge variant="destructive" className="text-xs">
-                              Gambling
-                            </Badge>
-                          )}
-                          {tx.isCrypto && (
-                            <Badge variant="destructive" className="text-xs">
-                              Crypto
-                            </Badge>
-                          )}
-                          {tx.isBlacklisted && (
-                            <Badge variant="destructive" className="text-xs">
-                              Blacklisted
-                            </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(tx.approvalStatus)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <DataTable
+                columns={columns}
+                data={transactions}
+                sorting={sorting}
+                onSortingChange={handleSortingChange}
+                onRowClick={setSelectedTransaction}
+              />
             </div>
             {pagination.totalPages > 1 && (
               <div className="border-t border-border/50 p-4 flex-shrink-0">
@@ -746,6 +641,14 @@ export default function TransactionsPage() {
           </CardContent>
         </Card>
       )}
+
+      <TransactionDrawer
+        transaction={selectedTransaction}
+        open={selectedTransaction !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedTransaction(null);
+        }}
+      />
     </div>
   );
 }
