@@ -5,6 +5,11 @@ import { api } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Money } from "@/components/app/Money";
+import { StatusBadge } from "@/components/app/StatusBadge";
+import { PageHeader } from "@/components/app/PageHeader";
+import { formatCurrency } from "@/lib/format";
 import Link from "next/link";
 import {
   calculateTransactionTypeStats,
@@ -121,13 +126,7 @@ export default function DashboardPage() {
     )
     .slice(0, 5);
 
-  const formatAmount = (cents: number, currency: string) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency || "EUR",
-      minimumFractionDigits: 2,
-    }).format(cents / 100);
-  };
+  const formatAmount = formatCurrency;
 
   // Calculate all analytics
   const transactionTypeStats = calculateTransactionTypeStats(transactions);
@@ -146,22 +145,21 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-muted-foreground">Loading...</div>
+      <div className="h-full flex flex-col p-8 overflow-hidden space-y-6">
+        <Skeleton className="h-9 w-64" />
+        <div className="grid gap-6 md:grid-cols-3">
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
+        </div>
+        <Skeleton className="h-64 w-full" />
       </div>
     );
   }
 
   return (
     <div className="h-full flex flex-col p-8 overflow-hidden">
-      <div className="flex-shrink-0 mb-6">
-        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
-          Dashboard
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Overview of your financial activity
-        </p>
-      </div>
+      <PageHeader title="Dashboard" description="Overview of your financial activity" />
 
       <div className="flex-1 overflow-auto space-y-8">
         <div className="grid gap-6 md:grid-cols-3">
@@ -172,8 +170,8 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-primary">
-                {formatAmount(kpis.totalSpend, "EUR")}
+              <div className="text-3xl font-bold">
+                <Money cents={kpis.totalSpend} currency="EUR" className="text-primary" />
               </div>
             </CardContent>
           </Card>
@@ -211,8 +209,8 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-destructive">
-                {formatAmount(kpis.violationsSpend, "EUR")}
+              <div className="text-3xl font-bold">
+                <Money cents={kpis.violationsSpend} currency="EUR" variant="violation" />
               </div>
             </CardContent>
           </Card>
@@ -620,17 +618,10 @@ export default function DashboardPage() {
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
                         {new Date(tx.bookedAt).toLocaleDateString()} •{" "}
-                        <span className="font-medium text-foreground">
-                          {formatAmount(tx.amount, tx.currency)}
-                        </span>
+                        <Money cents={tx.amount} currency={tx.currency} className="font-medium" />
                       </div>
                     </div>
-                    <Badge
-                      variant="outline"
-                      className="border-accent text-accent"
-                    >
-                      Pending
-                    </Badge>
+                    <StatusBadge status="PENDING" />
                   </div>
                 ))}
               </div>
@@ -665,9 +656,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
                         {new Date(tx.bookedAt).toLocaleDateString()} •{" "}
-                        <span className="font-medium text-foreground">
-                          {formatAmount(tx.amount, tx.currency)}
-                        </span>
+                        <Money cents={tx.amount} currency={tx.currency} className="font-medium" />
                       </div>
                       <div className="flex gap-2 mt-2">
                         {tx.isGambling && (
@@ -687,7 +676,7 @@ export default function DashboardPage() {
                         )}
                       </div>
                     </div>
-                    <Badge variant="destructive">Violation</Badge>
+                    <StatusBadge status="VIOLATION" />
                   </div>
                 ))}
               </div>
