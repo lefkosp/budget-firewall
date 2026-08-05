@@ -1,3 +1,5 @@
+import { isSpendingCategory, onlySpending } from "@/lib/categories";
+
 export interface Transaction {
   id: string;
   bookedAt: string;
@@ -169,17 +171,20 @@ export function calculateTimeStats(transactions: Transaction[]): TimeStats {
     // Hour
     hourMap.set(hour, (hourMap.get(hour) || 0) + 1);
 
-    // Daily spending
-    dailySpendingMap.set(
-      dateKey,
-      (dailySpendingMap.get(dateKey) || 0) + amount
-    );
+    // Spending totals exclude income and transfers; the frequency maps above
+    // deliberately don't, since "how many transactions on a Friday" is a
+    // question about activity, not spending.
+    if (isSpendingCategory(tx.computedCategory)) {
+      dailySpendingMap.set(
+        dateKey,
+        (dailySpendingMap.get(dateKey) || 0) + amount
+      );
 
-    // Monthly spending
-    monthlySpendingMap.set(
-      monthKey,
-      (monthlySpendingMap.get(monthKey) || 0) + amount
-    );
+      monthlySpendingMap.set(
+        monthKey,
+        (monthlySpendingMap.get(monthKey) || 0) + amount
+      );
+    }
 
     // Processing time
     if (tx.startedDate) {
@@ -331,8 +336,10 @@ export function calculateCategoryStats(
 ): CategoryStats[] {
   const categoryMap = new Map<string, { count: number; totalSpend: number }>();
 
-  transactions.forEach((tx) => {
-    const category = tx.computedCategory || "unknown";
+  // Spending breakdown, so income and transfers are excluded -- otherwise a
+  // salary credit shows up as the biggest "category" on the chart.
+  onlySpending(transactions).forEach((tx) => {
+    const category = tx.computedCategory || "Other";
     const amount = Math.abs(tx.amount);
 
     if (!categoryMap.has(category)) {
@@ -361,7 +368,9 @@ export function calculateMerchantStats(
     { count: number; totalSpend: number }
   >();
 
-  transactions.forEach((tx) => {
+  // "Top merchants by spend" -- an employer paying you isn't a merchant you
+  // spent money at, so non-spend categories are excluded here too.
+  onlySpending(transactions).forEach((tx) => {
     const merchant = tx.merchantNameNormalized || tx.rawDescription || "UNKNOWN";
     const amount = Math.abs(tx.amount);
 

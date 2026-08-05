@@ -1,3 +1,5 @@
+import { isSpendingCategory } from "../constants/categories";
+
 // Generic types for rule evaluation
 export interface TransactionInput {
   merchantNameNormalized: string;
@@ -96,8 +98,14 @@ export function evaluateTransaction(
     }
   }
 
-  // 4. Approval threshold check (only if not already a violation)
-  if (approvalThresholdRule && result.approvalStatus === "NEUTRAL") {
+  // 4. Approval threshold check (only if not already a violation).
+  // Only spending needs approval -- asking someone to approve their own
+  // salary landing, or a transfer between their own accounts, is noise.
+  if (
+    approvalThresholdRule &&
+    result.approvalStatus === "NEUTRAL" &&
+    isSpendingCategory(transaction.computedCategory)
+  ) {
     const config = approvalThresholdRule.config as { amountCents?: number };
     const threshold = config?.amountCents || 0;
     const absAmount = Math.abs(transaction.amount);
@@ -109,9 +117,9 @@ export function evaluateTransaction(
   }
 
   // 5. Budget exceed check
-  const categoryBudget = budgetSnapshot.find(
-    (b) => b.category === transaction.computedCategory
-  );
+  const categoryBudget = isSpendingCategory(transaction.computedCategory)
+    ? budgetSnapshot.find((b) => b.category === transaction.computedCategory)
+    : undefined;
   if (categoryBudget && categoryBudget.limit > 0) {
     const absAmount = Math.abs(transaction.amount);
     const newSpent = categoryBudget.spent + absAmount;

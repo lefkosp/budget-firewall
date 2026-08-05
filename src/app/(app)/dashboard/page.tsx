@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { StatCard } from "@/components/app/StatCard";
 import { FlagChips } from "@/components/app/FlagChips";
 import { formatCurrency } from "@/lib/format";
+import { onlySpending } from "@/lib/categories";
 import Link from "next/link";
 import {
   calculateTransactionTypeStats,
@@ -72,8 +73,10 @@ export default function DashboardPage() {
         const transactions = response.data || [];
         setTransactions(transactions);
 
-        // Calculate KPIs from all transactions
-        const totalSpend = transactions.reduce(
+        // Calculate KPIs from all transactions. Total Spend counts only
+        // spending categories -- income and transfers move money but aren't
+        // spending, and including them made this number meaningless.
+        const totalSpend = onlySpending(transactions).reduce(
           (sum: number, tx: Transaction) => sum + Math.abs(tx.amount),
           0
         );
