@@ -49,8 +49,10 @@ export interface Transaction {
   };
 }
 
+type TransactionRow = Transaction & { isRepeatViolation: boolean };
+
 function sortableHeader(label: string) {
-  return function Header({ column }: HeaderContext<Transaction, unknown>) {
+  return function Header({ column }: HeaderContext<TransactionRow, unknown>) {
     return (
       <Button
         variant="ghost"
@@ -65,7 +67,7 @@ function sortableHeader(label: string) {
   };
 }
 
-const columns: ColumnDef<Transaction, unknown>[] = [
+const columns: ColumnDef<TransactionRow, unknown>[] = [
   {
     id: "bookedAt",
     header: sortableHeader("Date"),
@@ -158,7 +160,9 @@ const columns: ColumnDef<Transaction, unknown>[] = [
   {
     id: "approvalStatus",
     header: "Status",
-    cell: ({ row }) => <StatusBadge status={row.original.approvalStatus} />,
+    cell: ({ row }) => (
+      <StatusBadge status={row.original.approvalStatus} repeat={row.original.isRepeatViolation} />
+    ),
   },
 ];
 
@@ -295,6 +299,27 @@ export default function TransactionsPage() {
     updateFilters({ sortBy: id, sortOrder: desc ? "desc" : "asc" });
   };
 
+  // Escalates a VIOLATION badge to "Repeat Violation" when the same merchant
+  // has 2+ violations in the currently loaded page -- a best-effort signal,
+  // not a true cross-history count (no backend aggregation for that yet).
+  const rows: TransactionRow[] = useMemo(() => {
+    const violationCounts = new Map<string, number>();
+    for (const tx of transactions) {
+      if (tx.approvalStatus === "VIOLATION") {
+        violationCounts.set(
+          tx.merchantNameNormalized,
+          (violationCounts.get(tx.merchantNameNormalized) ?? 0) + 1
+        );
+      }
+    }
+    return transactions.map((tx) => ({
+      ...tx,
+      isRepeatViolation:
+        tx.approvalStatus === "VIOLATION" &&
+        (violationCounts.get(tx.merchantNameNormalized) ?? 0) >= 2,
+    }));
+  }, [transactions]);
+
   const clearFilters = () => {
     const cleared = {
       status: "",
@@ -336,12 +361,38 @@ export default function TransactionsPage() {
 
   if (loading) {
     return (
-      <div className="h-full flex flex-col p-8 overflow-hidden space-y-6">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-9 w-48" />
+      <div className="h-full flex flex-col p-8 overflow-hidden">
+        <div className="flex items-center justify-between mb-6 flex-shrink-0">
+          <div className="space-y-2">
+            <Skeleton className="h-9 w-40" />
+            <Skeleton className="h-4 w-56" />
+          </div>
           <Skeleton className="h-9 w-24" />
         </div>
-        <Skeleton className="h-full w-full" />
+        <div className="flex gap-2 mb-6 flex-shrink-0">
+          <Skeleton className="h-9 w-14" />
+          <Skeleton className="h-9 w-20" />
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-9 w-20" />
+          <Skeleton className="h-9 w-28" />
+        </div>
+        <div className="flex-1 rounded-lg border border-border/50 overflow-hidden flex flex-col">
+          <div className="border-b border-border/50 p-4 flex-shrink-0">
+            <Skeleton className="h-4 w-full" />
+          </div>
+          <div className="divide-y divide-border/50">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-6 p-4">
+                <Skeleton className="h-4 w-16 flex-shrink-0" />
+                <Skeleton className="h-4 flex-1" />
+                <Skeleton className="h-4 w-16 flex-shrink-0" />
+                <Skeleton className="h-5 w-20 flex-shrink-0 rounded-full" />
+                <Skeleton className="h-5 w-16 flex-shrink-0 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -623,7 +674,7 @@ export default function TransactionsPage() {
             <div className="overflow-auto flex-1">
               <DataTable
                 columns={columns}
-                data={transactions}
+                data={rows}
                 sorting={sorting}
                 onSortingChange={handleSortingChange}
                 onRowClick={setSelectedTransaction}

@@ -126,6 +126,17 @@ export default function DashboardPage() {
     )
     .slice(0, 5);
 
+  // Best-effort: counted from currently loaded transactions, not full history.
+  const violationCounts = new Map<string, number>();
+  for (const tx of transactions) {
+    if (tx.approvalStatus === "VIOLATION") {
+      violationCounts.set(
+        tx.merchantNameNormalized,
+        (violationCounts.get(tx.merchantNameNormalized) ?? 0) + 1
+      );
+    }
+  }
+
   const formatAmount = formatCurrency;
 
   // Calculate all analytics
@@ -145,14 +156,27 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="h-full flex flex-col p-8 overflow-hidden space-y-6">
-        <Skeleton className="h-9 w-64" />
-        <div className="grid gap-6 md:grid-cols-3">
-          <Skeleton className="h-28 w-full" />
-          <Skeleton className="h-28 w-full" />
-          <Skeleton className="h-28 w-full" />
+      <div className="h-full flex flex-col p-8 overflow-hidden">
+        <div className="flex-shrink-0 mb-6 space-y-2">
+          <Skeleton className="h-9 w-40" />
+          <Skeleton className="h-4 w-64" />
         </div>
-        <Skeleton className="h-64 w-full" />
+        <div className="flex-1 overflow-hidden space-y-8">
+          <div className="grid gap-6 md:grid-cols-3">
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
+          </div>
+          <div className="grid gap-6 md:grid-cols-3">
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
+          </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            <Skeleton className="h-72 w-full" />
+            <Skeleton className="h-72 w-full" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -676,7 +700,10 @@ export default function DashboardPage() {
                         )}
                       </div>
                     </div>
-                    <StatusBadge status="VIOLATION" />
+                    <StatusBadge
+                      status="VIOLATION"
+                      repeat={(violationCounts.get(tx.merchantNameNormalized) ?? 0) >= 2}
+                    />
                   </div>
                 ))}
               </div>

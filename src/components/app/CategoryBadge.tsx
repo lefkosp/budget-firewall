@@ -1,15 +1,15 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { stableChartColor } from "@/lib/chartColors";
+import { getCategoryColor } from "@/lib/chartColors";
 
 interface CategoryBadgeProps {
   category: string;
   className?: string;
 }
 
-/** Colored category chip; color is a stable hash of the category name into the chart palette. */
+/** Colored category chip; color comes from the fixed category -> hue assignment. */
 export function CategoryBadge({ category, className }: CategoryBadgeProps) {
-  const color = stableChartColor(category);
+  const color = getCategoryColor(category);
 
   return (
     <Badge

@@ -18,7 +18,7 @@ const statusConfig: Record<ApprovalStatus, { label: string; className: string }>
   },
   DENIED: {
     label: "Denied",
-    className: "bg-destructive/20 text-destructive border-destructive/50",
+    className: "bg-serious/20 text-serious border-serious/50",
   },
   VIOLATION: {
     label: "Violation",
@@ -28,11 +28,24 @@ const statusConfig: Record<ApprovalStatus, { label: string; className: string }>
 
 interface StatusBadgeProps {
   status: string;
+  /** Escalates a VIOLATION to a solid-filled badge -- for a merchant with repeat violations. */
+  repeat?: boolean;
   className?: string;
 }
 
 /** The single source of truth for approval-status -> color, used by badges, tables, and dashboard cards. */
-export function StatusBadge({ status, className }: StatusBadgeProps) {
+export function StatusBadge({ status, repeat, className }: StatusBadgeProps) {
+  if (status === "VIOLATION" && repeat) {
+    return (
+      <Badge
+        variant="outline"
+        className={cn("border-transparent bg-destructive text-white", className)}
+      >
+        Repeat Violation
+      </Badge>
+    );
+  }
+
   const config = statusConfig[status as ApprovalStatus] ?? statusConfig.NEUTRAL;
 
   return (

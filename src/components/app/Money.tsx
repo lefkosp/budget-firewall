@@ -6,7 +6,9 @@ type MoneyVariant = "spend" | "income" | "refund" | "violation" | "neutral";
 const variantClassName: Record<MoneyVariant, string> = {
   spend: "text-foreground",
   income: "text-success",
-  refund: "text-info",
+  // Money returning to you either way -- refund vs. income is told apart by
+  // icon/label where it matters, not by a second hue (see Signal Ledger rule 1).
+  refund: "text-success",
   violation: "text-destructive",
   neutral: "text-foreground",
 };

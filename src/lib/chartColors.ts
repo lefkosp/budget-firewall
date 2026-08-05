@@ -9,11 +9,27 @@ export const CHART_COLORS = [
   "var(--chart-8)",
 ];
 
-/** Deterministic color for a category/merchant/etc. name -> stable across renders and datasets. */
-export function stableChartColor(key: string): string {
-  let hash = 0;
-  for (let i = 0; i < key.length; i++) {
-    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
-  }
-  return CHART_COLORS[hash % CHART_COLORS.length];
+/** Neutral color for anything that doesn't get a dedicated hue -- the "Other" bucket. */
+export const OTHER_COLOR = "var(--chart-8)";
+
+/**
+ * Fixed category -> color assignment. Each spending category keeps this color
+ * everywhere (badges, charts, legends) for as long as the app exists -- never
+ * cycled or hashed, so a category can't change color when the dataset shape
+ * changes. Categories not in this list (and anything beyond it) fall back to
+ * OTHER_COLOR rather than generating a new hue. Red is deliberately excluded
+ * here; it's reserved for --destructive (rule violations).
+ */
+const CATEGORY_COLORS: Record<string, string> = {
+  Groceries: "var(--chart-1)",
+  "Eating Out": "var(--chart-2)",
+  Transport: "var(--chart-3)",
+  "Bills & Utilities": "var(--chart-4)",
+  Subscriptions: "var(--chart-5)",
+  Shopping: "var(--chart-6)",
+  Entertainment: "var(--chart-7)",
+};
+
+export function getCategoryColor(category: string): string {
+  return CATEGORY_COLORS[category] ?? OTHER_COLOR;
 }

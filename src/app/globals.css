@@ -33,8 +33,8 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
-  --color-info: var(--info);
-  --color-info-foreground: var(--info-foreground);
+  --color-serious: var(--serious);
+  --color-serious-foreground: var(--serious-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -56,91 +56,103 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
+/*
+ * "Signal Ledger" — dark-only, on purpose (see DESIGN_SYSTEM.md discussion).
+ * Saturation is a budget, not decoration: chrome (background/card/border/
+ * primary/accent) stays quiet and near-neutral. Only semantic tokens
+ * (success/warning/serious/destructive) and the fixed category palette
+ * (--chart-1..7) are allowed to be vivid, because they're the only colors
+ * that are ever supposed to mean something. --chart-8 is a deliberate
+ * neutral "Other" bucket, not an 8th hue — red is excluded from the
+ * category rotation entirely; it's reserved for --destructive (violations).
+ */
 :root {
   --radius: 0.625rem;
-  /* Dark theme as default with lime and purple accents */
-  --background: oklch(0.12 0.02 270);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.18 0.03 280);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.18 0.03 280);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.75 0.2 120); /* Lime green */
-  --primary-foreground: oklch(0.15 0.05 270); /* Dark purple */
-  --secondary: oklch(0.25 0.05 280); /* Dark purple variant */
-  --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.22 0.02 270);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.7 0.18 300); /* Purple accent */
-  --accent-foreground: oklch(0.95 0 0);
-  --destructive: oklch(0.65 0.22 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --success: oklch(0.75 0.2 150); /* Green, distinct from lime primary */
-  --success-foreground: oklch(0.15 0.05 150);
-  --warning: oklch(0.8 0.15 85); /* Amber */
-  --warning-foreground: oklch(0.15 0.05 85);
-  --info: oklch(0.7 0.15 230); /* Blue */
-  --info-foreground: oklch(0.98 0 0);
-  --border: oklch(0.25 0.03 280);
-  --input: oklch(0.25 0.03 280);
-  --ring: oklch(0.75 0.2 120);
-  --chart-1: oklch(0.75 0.2 120); /* Lime */
-  --chart-2: oklch(0.7 0.18 300); /* Purple */
-  --chart-3: oklch(0.65 0.2 200); /* Blue */
-  --chart-4: oklch(0.7 0.18 30); /* Orange */
-  --chart-5: oklch(0.65 0.2 350); /* Pink */
-  --chart-6: oklch(0.75 0.15 60); /* Yellow */
-  --chart-7: oklch(0.7 0.15 165); /* Teal */
-  --chart-8: oklch(0.7 0.2 255); /* Indigo */
-  --sidebar: oklch(0.15 0.03 280);
-  --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-primary: oklch(0.75 0.2 120);
-  --sidebar-primary-foreground: oklch(0.15 0.05 270);
-  --sidebar-accent: oklch(0.25 0.05 280);
-  --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(0.25 0.03 280);
-  --sidebar-ring: oklch(0.75 0.2 120);
+  --background: #0a0a0c;
+  --foreground: #f2f3f5;
+  --card: #212329;
+  --card-foreground: #f2f3f5;
+  --popover: #292c33;
+  --popover-foreground: #f2f3f5;
+  --primary: #8b98a8; /* quiet steel — the only "brand" color, means "you can click this" */
+  --primary-foreground: #0c0d0f;
+  --secondary: #212329;
+  --secondary-foreground: #f2f3f5;
+  --muted: #17181c;
+  --muted-foreground: #a4a7b0;
+  --accent: #a5b1bf; /* same steel family as primary, one step lighter */
+  --accent-foreground: #0c0d0f;
+  --destructive: #d03b3b; /* critical: rule violations */
+  --destructive-foreground: #ffffff;
+  --success: #0ca30c; /* good: approved, money arriving */
+  --success-foreground: #ffffff;
+  --warning: #fab219; /* pending, approaching a budget limit */
+  --warning-foreground: #1a1200;
+  --serious: #ec835a; /* denied, over budget */
+  --serious-foreground: #1a0a00;
+  --border: #3c3f47;
+  --input: #3c3f47;
+  --ring: #8b98a8;
+  --chart-1: #3987e5; /* Groceries */
+  --chart-2: #d95926; /* Eating Out */
+  --chart-3: #199e70; /* Transport */
+  --chart-4: #c98500; /* Bills & Utilities */
+  --chart-5: #d55181; /* Subscriptions */
+  --chart-6: #008300; /* Shopping */
+  --chart-7: #9085e9; /* Entertainment */
+  --chart-8: #565961; /* Other (neutral overflow, not a real hue) */
+  --sidebar: #0a0a0c;
+  --sidebar-foreground: #f2f3f5;
+  --sidebar-primary: #8b98a8;
+  --sidebar-primary-foreground: #0c0d0f;
+  --sidebar-accent: #212329;
+  --sidebar-accent-foreground: #f2f3f5;
+  --sidebar-border: #3c3f47;
+  --sidebar-ring: #8b98a8;
 }
 
 .dark {
-  --background: oklch(0.12 0.02 270);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.18 0.03 280);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.18 0.03 280);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.75 0.2 120);
-  --primary-foreground: oklch(0.15 0.05 270);
-  --secondary: oklch(0.25 0.05 280);
-  --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.22 0.02 270);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.7 0.18 300);
-  --accent-foreground: oklch(0.95 0 0);
-  --destructive: oklch(0.65 0.22 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --success: oklch(0.75 0.2 150); /* Green, distinct from lime primary */
-  --success-foreground: oklch(0.15 0.05 150);
-  --warning: oklch(0.8 0.15 85); /* Amber */
-  --warning-foreground: oklch(0.15 0.05 85);
-  --info: oklch(0.7 0.15 230); /* Blue */
-  --info-foreground: oklch(0.98 0 0);
-  --border: oklch(0.25 0.03 280);
-  --input: oklch(0.25 0.03 280);
-  --ring: oklch(0.75 0.2 120);
-  --chart-1: oklch(0.75 0.2 120);
-  --chart-2: oklch(0.7 0.18 300);
-  --chart-3: oklch(0.65 0.2 200);
-  --chart-4: oklch(0.7 0.18 30);
-  --chart-5: oklch(0.65 0.2 350);
-  --sidebar: oklch(0.15 0.03 280);
-  --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-primary: oklch(0.75 0.2 120);
-  --sidebar-primary-foreground: oklch(0.15 0.05 270);
-  --sidebar-accent: oklch(0.25 0.05 280);
-  --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(0.25 0.03 280);
-  --sidebar-ring: oklch(0.75 0.2 120);
+  --background: #0a0a0c;
+  --foreground: #f2f3f5;
+  --card: #212329;
+  --card-foreground: #f2f3f5;
+  --popover: #292c33;
+  --popover-foreground: #f2f3f5;
+  --primary: #8b98a8;
+  --primary-foreground: #0c0d0f;
+  --secondary: #212329;
+  --secondary-foreground: #f2f3f5;
+  --muted: #17181c;
+  --muted-foreground: #a4a7b0;
+  --accent: #a5b1bf;
+  --accent-foreground: #0c0d0f;
+  --destructive: #d03b3b;
+  --destructive-foreground: #ffffff;
+  --success: #0ca30c;
+  --success-foreground: #ffffff;
+  --warning: #fab219;
+  --warning-foreground: #1a1200;
+  --serious: #ec835a;
+  --serious-foreground: #1a0a00;
+  --border: #3c3f47;
+  --input: #3c3f47;
+  --ring: #8b98a8;
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+  --chart-6: #008300;
+  --chart-7: #9085e9;
+  --chart-8: #565961;
+  --sidebar: #0a0a0c;
+  --sidebar-foreground: #f2f3f5;
+  --sidebar-primary: #8b98a8;
+  --sidebar-primary-foreground: #0c0d0f;
+  --sidebar-accent: #212329;
+  --sidebar-accent-foreground: #f2f3f5;
+  --sidebar-border: #3c3f47;
+  --sidebar-ring: #8b98a8;
 }
 
 @layer base {
