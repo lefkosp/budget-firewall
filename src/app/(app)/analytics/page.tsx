@@ -70,11 +70,21 @@ export default function AnalyticsPage() {
 
   if (loading) {
     return (
-      <div className="h-full flex flex-col p-8 overflow-hidden space-y-6">
-        <Skeleton className="h-9 w-48" />
-        <div className="grid gap-6 md:grid-cols-2">
-          <Skeleton className="h-72 w-full" />
-          <Skeleton className="h-72 w-full" />
+      <div className="h-full flex flex-col p-8 overflow-hidden">
+        <div className="flex-shrink-0 mb-6 space-y-2">
+          <Skeleton className="h-9 w-40" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <div className="flex-1 overflow-hidden space-y-8">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="space-y-4">
+              <Skeleton className="h-6 w-48" />
+              <div className="grid gap-6 md:grid-cols-2">
+                <Skeleton className="h-72 w-full" />
+                <Skeleton className="h-72 w-full" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
