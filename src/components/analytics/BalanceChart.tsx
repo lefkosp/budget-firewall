@@ -1,8 +1,6 @@
 "use client";
 
 import {
-  LineChart,
-  Line,
   AreaChart,
   Area,
   XAxis,
@@ -10,9 +8,8 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartCard } from "@/components/app/ChartCard";
 import { BalanceStats } from "@/lib/analytics/calculate";
 
 interface BalanceChartProps {
@@ -33,32 +30,25 @@ export function BalanceOverTimeChart({
   }));
 
   return (
-    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle className="text-lg">Balance Over Time</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" angle={-45} textAnchor="end" height={100} />
-            <YAxis />
-            <Tooltip
-              formatter={(value: number) => formatAmount(value * 100, "EUR")}
-            />
-            <Legend />
-            <Area
-              type="monotone"
-              dataKey="balance"
-              stroke="var(--chart-1)"
-              fill="var(--chart-1)"
-              fillOpacity={0.3}
-              name="Balance"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ChartCard title="Balance Over Time">
+      <AreaChart data={chartData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="date" angle={-45} textAnchor="end" height={100} />
+        <YAxis />
+        <Tooltip
+          formatter={(value: number) => formatAmount(value * 100, "EUR")}
+        />
+        <Legend />
+        <Area
+          type="monotone"
+          dataKey="balance"
+          stroke="var(--chart-1)"
+          fill="var(--chart-1)"
+          fillOpacity={0.3}
+          name="Balance"
+        />
+      </AreaChart>
+    </ChartCard>
   );
 }
 
@@ -74,31 +64,24 @@ export function BalanceByProductChart({
   );
 
   return (
-    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle className="text-lg">Balance by Product</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="product" />
-            <YAxis />
-            <Tooltip
-              formatter={(value: number) => formatAmount(value * 100, "EUR")}
-            />
-            <Legend />
-            <Area
-              type="monotone"
-              dataKey="balance"
-              stroke="var(--chart-2)"
-              fill="var(--chart-2)"
-              fillOpacity={0.3}
-              name="Balance"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ChartCard title="Balance by Product">
+      <AreaChart data={chartData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="product" />
+        <YAxis />
+        <Tooltip
+          formatter={(value: number) => formatAmount(value * 100, "EUR")}
+        />
+        <Legend />
+        <Area
+          type="monotone"
+          dataKey="balance"
+          stroke="var(--chart-2)"
+          fill="var(--chart-2)"
+          fillOpacity={0.3}
+          name="Balance"
+        />
+      </AreaChart>
+    </ChartCard>
   );
 }

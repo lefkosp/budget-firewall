@@ -11,9 +11,8 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartCard } from "@/components/app/ChartCard";
 import { CategoryStats } from "@/lib/analytics/calculate";
 import { getCategoryColor, OTHER_COLOR } from "@/lib/chartColors";
 
@@ -89,25 +88,18 @@ export function CategoryBarChart({
   }));
 
   return (
-    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle className="text-lg">Top Categories by Spend</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-            <YAxis />
-            <Tooltip
-              formatter={(value: number) => formatAmount(value * 100, "EUR")}
-            />
-            <Legend />
-            <Bar dataKey="spend" fill="var(--chart-1)" name="Total Spend" />
-          </BarChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ChartCard title="Top Categories by Spend">
+      <BarChart data={chartData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+        <YAxis />
+        <Tooltip
+          formatter={(value: number) => formatAmount(value * 100, "EUR")}
+        />
+        <Legend />
+        <Bar dataKey="spend" fill="var(--chart-1)" name="Total Spend" />
+      </BarChart>
+    </ChartCard>
   );
 }
 
@@ -118,36 +110,29 @@ export function CategoryPieChart({
   const chartData = toPieData(data);
 
   return (
-    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle className="text-lg">Category Distribution</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <PieChart>
-            <Pie
-              data={chartData}
-              cx="50%"
-              cy="50%"
-              labelLine={false}
-              label={({ name, percent }) =>
-                `${name}: ${(percent * 100).toFixed(0)}%`
-              }
-              outerRadius={80}
-              fill="var(--chart-1)"
-              dataKey="value"
-            >
-              {chartData.map((entry) => (
-                <Cell
-                  key={`cell-${entry.name}`}
-                  fill={entry.name === "Other" ? OTHER_COLOR : getCategoryColor(entry.name)}
-                />
-              ))}
-            </Pie>
-            <Tooltip content={<CategoryTooltip formatAmount={formatAmount} />} />
-          </PieChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ChartCard title="Category Distribution">
+      <PieChart>
+        <Pie
+          data={chartData}
+          cx="50%"
+          cy="50%"
+          labelLine={false}
+          label={({ name, percent }) =>
+            `${name}: ${(percent * 100).toFixed(0)}%`
+          }
+          outerRadius={80}
+          fill="var(--chart-1)"
+          dataKey="value"
+        >
+          {chartData.map((entry) => (
+            <Cell
+              key={`cell-${entry.name}`}
+              fill={entry.name === "Other" ? OTHER_COLOR : getCategoryColor(entry.name)}
+            />
+          ))}
+        </Pie>
+        <Tooltip content={<CategoryTooltip formatAmount={formatAmount} />} />
+      </PieChart>
+    </ChartCard>
   );
 }

@@ -10,9 +10,8 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartCard } from "@/components/app/ChartCard";
 import { FeeStats } from "@/lib/analytics/calculate";
 
 interface FeeChartProps {
@@ -25,18 +24,7 @@ export function FeeTrendsChart({
   formatAmount,
 }: FeeChartProps) {
   if (feeStats.feeTrends.length === 0) {
-    return (
-      <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="text-lg">Fee Trends</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground text-center py-8">
-            No fee data available
-          </p>
-        </CardContent>
-      </Card>
-    );
+    return <ChartCard title="Fee Trends" empty emptyMessage="No fee data available" />;
   }
 
   const chartData = feeStats.feeTrends.map((item) => ({
@@ -48,30 +36,23 @@ export function FeeTrendsChart({
   }));
 
   return (
-    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle className="text-lg">Fee Trends Over Time</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" angle={-45} textAnchor="end" height={100} />
-            <YAxis />
-            <Tooltip
-              formatter={(value: number) => formatAmount(value * 100, "EUR")}
-            />
-            <Legend />
-            <Line
-              type="monotone"
-              dataKey="fee"
-              stroke="var(--chart-4)"
-              name="Fee"
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ChartCard title="Fee Trends Over Time">
+      <LineChart data={chartData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="date" angle={-45} textAnchor="end" height={100} />
+        <YAxis />
+        <Tooltip
+          formatter={(value: number) => formatAmount(value * 100, "EUR")}
+        />
+        <Legend />
+        <Line
+          type="monotone"
+          dataKey="fee"
+          stroke="var(--chart-4)"
+          name="Fee"
+        />
+      </LineChart>
+    </ChartCard>
   );
 }
 
@@ -81,16 +62,7 @@ export function FeesByTypeChart({
 }: FeeChartProps) {
   if (Object.keys(feeStats.feesByType).length === 0) {
     return (
-      <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="text-lg">Fees by Transaction Type</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground text-center py-8">
-            No fee data available
-          </p>
-        </CardContent>
-      </Card>
+      <ChartCard title="Fees by Transaction Type" empty emptyMessage="No fee data available" />
     );
   }
 
@@ -102,24 +74,17 @@ export function FeesByTypeChart({
   );
 
   return (
-    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle className="text-lg">Fees by Transaction Type</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="type" angle={-45} textAnchor="end" height={100} />
-            <YAxis />
-            <Tooltip
-              formatter={(value: number) => formatAmount(value * 100, "EUR")}
-            />
-            <Legend />
-            <Bar dataKey="fee" fill="var(--chart-4)" name="Total Fees" />
-          </BarChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ChartCard title="Fees by Transaction Type">
+      <BarChart data={chartData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="type" angle={-45} textAnchor="end" height={100} />
+        <YAxis />
+        <Tooltip
+          formatter={(value: number) => formatAmount(value * 100, "EUR")}
+        />
+        <Legend />
+        <Bar dataKey="fee" fill="var(--chart-4)" name="Total Fees" />
+      </BarChart>
+    </ChartCard>
   );
 }

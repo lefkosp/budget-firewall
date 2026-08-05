@@ -8,14 +8,24 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartCard } from "@/components/app/ChartCard";
 import { MerchantStats } from "@/lib/analytics/calculate";
 
 interface MerchantChartProps {
   data: MerchantStats[];
   formatAmount: (cents: number, currency: string) => string;
+}
+
+function truncate(merchant: string) {
+  return merchant.length > 20 ? merchant.substring(0, 20) + "..." : merchant;
+}
+
+// The x-axis label is truncated to keep the chart readable; the tooltip
+// looks up the untruncated name from the data point so hovering still shows
+// the full merchant.
+function fullNameLabel(_label: string, payload: { payload?: { fullName?: string } }[]) {
+  return payload?.[0]?.payload?.fullName ?? _label;
 }
 
 export function TopMerchantsBySpendChart({
@@ -24,33 +34,26 @@ export function TopMerchantsBySpendChart({
 }: MerchantChartProps) {
   const topMerchants = data.slice(0, 10);
   const chartData = topMerchants.map((item) => ({
-    name: item.merchant.length > 20
-      ? item.merchant.substring(0, 20) + "..."
-      : item.merchant,
+    name: truncate(item.merchant),
+    fullName: item.merchant,
     spend: item.totalSpend / 100, // Convert to currency units
     count: item.count,
   }));
 
   return (
-    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle className="text-lg">Top Merchants by Spend</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-            <YAxis />
-            <Tooltip
-              formatter={(value: number) => formatAmount(value * 100, "EUR")}
-            />
-            <Legend />
-            <Bar dataKey="spend" fill="var(--chart-1)" name="Total Spend" />
-          </BarChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ChartCard title="Top Merchants by Spend">
+      <BarChart data={chartData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+        <YAxis />
+        <Tooltip
+          labelFormatter={fullNameLabel}
+          formatter={(value: number) => formatAmount(value * 100, "EUR")}
+        />
+        <Legend />
+        <Bar dataKey="spend" fill="var(--chart-1)" name="Total Spend" />
+      </BarChart>
+    </ChartCard>
   );
 }
 
@@ -60,30 +63,22 @@ export function TopMerchantsByFrequencyChart({
 }: MerchantChartProps) {
   const topMerchants = data.slice(0, 10);
   const chartData = topMerchants.map((item) => ({
-    name: item.merchant.length > 20
-      ? item.merchant.substring(0, 20) + "..."
-      : item.merchant,
+    name: truncate(item.merchant),
+    fullName: item.merchant,
     count: item.count,
     average: item.averageAmount / 100, // Convert to currency units
   }));
 
   return (
-    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle className="text-lg">Top Merchants by Frequency</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="count" fill="var(--chart-2)" name="Transaction Count" />
-          </BarChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ChartCard title="Top Merchants by Frequency">
+      <BarChart data={chartData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+        <YAxis />
+        <Tooltip labelFormatter={fullNameLabel} />
+        <Legend />
+        <Bar dataKey="count" fill="var(--chart-2)" name="Transaction Count" />
+      </BarChart>
+    </ChartCard>
   );
 }

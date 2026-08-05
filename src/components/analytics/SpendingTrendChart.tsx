@@ -10,9 +10,8 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartCard } from "@/components/app/ChartCard";
 import { TimeStats } from "@/lib/analytics/calculate";
 
 interface SpendingTrendChartProps {
@@ -33,30 +32,23 @@ export function DailySpendingChart({
   }));
 
   return (
-    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle className="text-lg">Daily Spending Trends</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" angle={-45} textAnchor="end" height={100} />
-            <YAxis />
-            <Tooltip
-              formatter={(value: number) => formatAmount(value * 100, "EUR")}
-            />
-            <Legend />
-            <Line
-              type="monotone"
-              dataKey="amount"
-              stroke="var(--chart-1)"
-              name="Daily Spend"
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ChartCard title="Daily Spending Trends">
+      <LineChart data={chartData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="date" angle={-45} textAnchor="end" height={100} />
+        <YAxis />
+        <Tooltip
+          formatter={(value: number) => formatAmount(value * 100, "EUR")}
+        />
+        <Legend />
+        <Line
+          type="monotone"
+          dataKey="amount"
+          stroke="var(--chart-1)"
+          name="Daily Spend"
+        />
+      </LineChart>
+    </ChartCard>
   );
 }
 
@@ -80,23 +72,16 @@ export function WeeklySpendingChart({
   }));
 
   return (
-    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle className="text-lg">Transactions by Day of Week</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="day" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="transactions" fill="var(--chart-2)" name="Transactions" />
-          </BarChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ChartCard title="Transactions by Day of Week">
+      <BarChart data={chartData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="day" />
+        <YAxis />
+        <Tooltip />
+        <Legend />
+        <Bar dataKey="transactions" fill="var(--chart-2)" name="Transactions" />
+      </BarChart>
+    </ChartCard>
   );
 }
 
@@ -110,29 +95,22 @@ export function MonthlySpendingChart({
   }));
 
   return (
-    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle className="text-lg">Monthly Spending Trends</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="month" />
-            <YAxis />
-            <Tooltip
-              formatter={(value: number) => formatAmount(value * 100, "EUR")}
-            />
-            <Legend />
-            <Line
-              type="monotone"
-              dataKey="amount"
-              stroke="var(--chart-3)"
-              name="Monthly Spend"
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ChartCard title="Monthly Spending Trends">
+      <LineChart data={chartData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="month" />
+        <YAxis />
+        <Tooltip
+          formatter={(value: number) => formatAmount(value * 100, "EUR")}
+        />
+        <Legend />
+        <Line
+          type="monotone"
+          dataKey="amount"
+          stroke="var(--chart-3)"
+          name="Monthly Spend"
+        />
+      </LineChart>
+    </ChartCard>
   );
 }
