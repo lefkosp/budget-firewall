@@ -6,10 +6,10 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import { Money } from "@/components/app/Money";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { CategoryBadge } from "@/components/app/CategoryBadge";
+import { FlagChips } from "@/components/app/FlagChips";
 import type { Transaction } from "@/app/(app)/transactions/page";
 
 interface TransactionDrawerProps {
@@ -77,23 +77,12 @@ export function TransactionDrawer({ transaction, open, onOpenChange }: Transacti
               {(transaction.isGambling || transaction.isCrypto || transaction.isBlacklisted) && (
                 <>
                   <Separator className="my-2" />
-                  <div className="flex flex-wrap gap-2 py-2">
-                    {transaction.isGambling && (
-                      <Badge variant="destructive" className="text-xs">
-                        Gambling
-                      </Badge>
-                    )}
-                    {transaction.isCrypto && (
-                      <Badge variant="destructive" className="text-xs">
-                        Crypto
-                      </Badge>
-                    )}
-                    {transaction.isBlacklisted && (
-                      <Badge variant="destructive" className="text-xs">
-                        Blacklisted
-                      </Badge>
-                    )}
-                  </div>
+                  <FlagChips
+                    isGambling={transaction.isGambling}
+                    isCrypto={transaction.isCrypto}
+                    isBlacklisted={transaction.isBlacklisted}
+                    className="py-2"
+                  />
                 </>
               )}
             </div>

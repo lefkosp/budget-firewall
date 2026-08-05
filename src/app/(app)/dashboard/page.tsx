@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Money } from "@/components/app/Money";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { PageHeader } from "@/components/app/PageHeader";
+import { StatCard } from "@/components/app/StatCard";
+import { FlagChips } from "@/components/app/FlagChips";
 import { formatCurrency } from "@/lib/format";
 import Link from "next/link";
 import {
@@ -185,83 +186,45 @@ export default function DashboardPage() {
     <div className="h-full flex flex-col p-8 overflow-hidden">
       <PageHeader title="Dashboard" description="Overview of your financial activity" />
 
-      <div className="flex-1 overflow-auto space-y-8">
+      <div className="flex-1 overflow-auto space-y-8 animate-in fade-in duration-300">
         <div className="grid gap-6 md:grid-cols-3">
-          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Spend
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                <Money cents={kpis.totalSpend} currency="EUR" className="text-primary" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Violations
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-destructive">
-                {kpis.violations}
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Pending Approvals
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-accent">
-                {kpis.pendingApprovals}
-              </div>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Total Spend"
+            value={<Money cents={kpis.totalSpend} currency="EUR" className="text-primary" />}
+            className="animate-in fade-in slide-in-from-bottom-1 duration-300"
+          />
+          <StatCard
+            label="Violations"
+            value={kpis.violations}
+            intent="destructive"
+            className="animate-in fade-in slide-in-from-bottom-1 duration-300 [animation-delay:40ms] [animation-fill-mode:backwards]"
+          />
+          <StatCard
+            label="Pending Approvals"
+            value={kpis.pendingApprovals}
+            intent="warning"
+            className="animate-in fade-in slide-in-from-bottom-1 duration-300 [animation-delay:80ms] [animation-fill-mode:backwards]"
+          />
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
-          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Violations Spend
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                <Money cents={kpis.violationsSpend} currency="EUR" variant="violation" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Gambling
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-destructive">
-                {kpis.gamblingCount}
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Crypto
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-destructive">
-                {kpis.cryptoCount}
-              </div>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Violations Spend"
+            value={<Money cents={kpis.violationsSpend} currency="EUR" variant="violation" />}
+            className="animate-in fade-in slide-in-from-bottom-1 duration-300 [animation-delay:120ms] [animation-fill-mode:backwards]"
+          />
+          <StatCard
+            label="Gambling"
+            value={kpis.gamblingCount}
+            intent="destructive"
+            className="animate-in fade-in slide-in-from-bottom-1 duration-300 [animation-delay:160ms] [animation-fill-mode:backwards]"
+          />
+          <StatCard
+            label="Crypto"
+            value={kpis.cryptoCount}
+            intent="destructive"
+            className="animate-in fade-in slide-in-from-bottom-1 duration-300 [animation-delay:200ms] [animation-fill-mode:backwards]"
+          />
         </div>
 
         {/* Transaction Type Analytics */}
@@ -328,7 +291,9 @@ export default function DashboardPage() {
                     <CardContent>
                       <div className="space-y-2">
                         <div>
-                          <div className="text-2xl font-bold">{formatAmount(product.totalSpend, "EUR")}</div>
+                          <div className="text-2xl font-bold">
+                            <Money cents={product.totalSpend} currency="EUR" />
+                          </div>
                           <div className="text-sm text-muted-foreground">Total Spend</div>
                         </div>
                         <div>
@@ -406,54 +371,29 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-2xl font-bold mb-4">Balance Analytics</h2>
               <div className="grid gap-6 md:grid-cols-4">
-                <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                  <CardHeader>
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Current Balance
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {formatAmount(balanceStats.currentBalance, "EUR")}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                  <CardHeader>
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Balance Change
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className={`text-2xl font-bold ${balanceStats.balanceChange >= 0 ? "text-primary" : "text-destructive"}`}>
-                      {formatAmount(balanceStats.balanceChange, "EUR")}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                  <CardHeader>
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Lowest Balance
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-destructive">
-                      {formatAmount(balanceStats.lowestBalance, "EUR")}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                  <CardHeader>
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Highest Balance
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-primary">
-                      {formatAmount(balanceStats.highestBalance, "EUR")}
-                    </div>
-                  </CardContent>
-                </Card>
+                <StatCard
+                  label="Current Balance"
+                  value={<Money cents={balanceStats.currentBalance} currency="EUR" />}
+                />
+                <StatCard
+                  label="Balance Change"
+                  value={
+                    <Money
+                      cents={balanceStats.balanceChange}
+                      currency="EUR"
+                      variant={balanceStats.balanceChange >= 0 ? "income" : "spend"}
+                      signDisplay={balanceStats.balanceChange >= 0}
+                    />
+                  }
+                />
+                <StatCard
+                  label="Lowest Balance"
+                  value={<Money cents={balanceStats.lowestBalance} currency="EUR" />}
+                />
+                <StatCard
+                  label="Highest Balance"
+                  value={<Money cents={balanceStats.highestBalance} currency="EUR" />}
+                />
               </div>
             </div>
             <div className="grid gap-6 md:grid-cols-2">
@@ -481,7 +421,9 @@ export default function DashboardPage() {
                     <CardContent>
                       <div className="space-y-2">
                         <div>
-                          <div className="text-2xl font-bold">{formatAmount(currency.totalSpend, currency.currency)}</div>
+                          <div className="text-2xl font-bold">
+                            <Money cents={currency.totalSpend} currency={currency.currency} />
+                          </div>
                           <div className="text-sm text-muted-foreground">Total Spend</div>
                         </div>
                         <div>
@@ -511,7 +453,9 @@ export default function DashboardPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-xl font-bold">{formatAmount(category.totalSpend, "EUR")}</div>
+                      <div className="text-xl font-bold">
+                        <Money cents={category.totalSpend} currency="EUR" />
+                      </div>
                       <div className="text-sm text-muted-foreground">{category.count} transactions</div>
                     </CardContent>
                   </Card>
@@ -541,7 +485,9 @@ export default function DashboardPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-xl font-bold">{formatAmount(merchant.totalSpend, "EUR")}</div>
+                      <div className="text-xl font-bold">
+                        <Money cents={merchant.totalSpend} currency="EUR" />
+                      </div>
                       <div className="text-sm text-muted-foreground">{merchant.count} transactions</div>
                     </CardContent>
                   </Card>
@@ -561,36 +507,18 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-2xl font-bold mb-4">Fee Analytics</h2>
               <div className="grid gap-6 md:grid-cols-3">
-                <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                  <CardHeader>
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Total Fees
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">{formatAmount(feeStats.totalFees, "EUR")}</div>
-                  </CardContent>
-                </Card>
-                <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                  <CardHeader>
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Average Fee
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">{formatAmount(feeStats.averageFee, "EUR")}</div>
-                  </CardContent>
-                </Card>
-                <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-                  <CardHeader>
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Highest Fee
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold">{formatAmount(feeStats.highestFee, "EUR")}</div>
-                  </CardContent>
-                </Card>
+                <StatCard
+                  label="Total Fees"
+                  value={<Money cents={feeStats.totalFees} currency="EUR" />}
+                />
+                <StatCard
+                  label="Average Fee"
+                  value={<Money cents={feeStats.averageFee} currency="EUR" />}
+                />
+                <StatCard
+                  label="Highest Fee"
+                  value={<Money cents={feeStats.highestFee} currency="EUR" />}
+                />
               </div>
             </div>
             <div className="grid gap-6 md:grid-cols-2">
@@ -682,23 +610,12 @@ export default function DashboardPage() {
                         {new Date(tx.bookedAt).toLocaleDateString()} •{" "}
                         <Money cents={tx.amount} currency={tx.currency} className="font-medium" />
                       </div>
-                      <div className="flex gap-2 mt-2">
-                        {tx.isGambling && (
-                          <Badge variant="destructive" className="text-xs">
-                            Gambling
-                          </Badge>
-                        )}
-                        {tx.isCrypto && (
-                          <Badge variant="destructive" className="text-xs">
-                            Crypto
-                          </Badge>
-                        )}
-                        {tx.isBlacklisted && (
-                          <Badge variant="destructive" className="text-xs">
-                            Blacklisted
-                          </Badge>
-                        )}
-                      </div>
+                      <FlagChips
+                        isGambling={tx.isGambling}
+                        isCrypto={tx.isCrypto}
+                        isBlacklisted={tx.isBlacklisted}
+                        className="mt-2"
+                      />
                     </div>
                     <StatusBadge
                       status="VIOLATION"

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Money } from "@/components/app/Money";
 import { StatusBadge } from "@/components/app/StatusBadge";
 import { CategoryBadge } from "@/components/app/CategoryBadge";
+import { FlagChips } from "@/components/app/FlagChips";
 import { PageHeader } from "@/components/app/PageHeader";
 import { DataTable } from "@/components/app/DataTable";
 import { TransactionDrawer } from "@/components/app/TransactionDrawer";
@@ -84,11 +86,17 @@ const columns: ColumnDef<TransactionRow, unknown>[] = [
   {
     id: "merchantNameNormalized",
     header: sortableHeader("Merchant"),
-    cell: ({ row }) => (
-      <span className="font-medium">
-        {row.original.merchantNameNormalized || row.original.rawDescription}
-      </span>
-    ),
+    cell: ({ row }) => {
+      const name = row.original.merchantNameNormalized || row.original.rawDescription;
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="block max-w-56 truncate font-medium">{name}</span>
+          </TooltipTrigger>
+          <TooltipContent>{name}</TooltipContent>
+        </Tooltip>
+      );
+    },
   },
   {
     id: "amount",
@@ -138,23 +146,11 @@ const columns: ColumnDef<TransactionRow, unknown>[] = [
     id: "flags",
     header: "Flags",
     cell: ({ row }) => (
-      <div className="flex gap-1 flex-wrap">
-        {row.original.isGambling && (
-          <Badge variant="destructive" className="text-xs">
-            Gambling
-          </Badge>
-        )}
-        {row.original.isCrypto && (
-          <Badge variant="destructive" className="text-xs">
-            Crypto
-          </Badge>
-        )}
-        {row.original.isBlacklisted && (
-          <Badge variant="destructive" className="text-xs">
-            Blacklisted
-          </Badge>
-        )}
-      </div>
+      <FlagChips
+        isGambling={row.original.isGambling}
+        isCrypto={row.original.isCrypto}
+        isBlacklisted={row.original.isBlacklisted}
+      />
     ),
   },
   {
@@ -669,7 +665,7 @@ export default function TransactionsPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-border/50 bg-card/50 backdrop-blur-sm flex-1 flex flex-col overflow-hidden">
+        <Card className="border-border/50 bg-card/50 backdrop-blur-sm flex-1 flex flex-col overflow-hidden animate-in fade-in duration-300">
           <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
             <div className="overflow-auto flex-1">
               <DataTable

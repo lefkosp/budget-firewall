@@ -120,7 +120,7 @@ export default function AnalyticsPage() {
         description="Comprehensive financial analytics and insights"
       />
 
-      <div className="flex-1 overflow-auto space-y-8">
+      <div className="flex-1 overflow-auto space-y-8 animate-in fade-in duration-300">
         {/* Transaction Type Analytics */}
         {transactionTypeStats.length > 0 && (
           <div className="space-y-6">
