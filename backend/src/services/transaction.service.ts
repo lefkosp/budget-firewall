@@ -9,6 +9,8 @@ import { BudgetCategory } from "../models/BudgetCategory";
 import { normalizeMerchant } from "../utils/normalizeMerchant";
 import { evaluateTransaction, BudgetSnapshot } from "../utils/evaluateRules";
 import { ensureUserDefaults } from "./user.service";
+import { categorizeTransaction } from "./categorize.service";
+import { DEFAULT_CATEGORY, isSpendingCategory } from "../constants/categories";
 
 export async function syncAndProcessTransactions(
   userId: string,
@@ -38,7 +40,13 @@ export async function syncAndProcessTransactions(
 
   for (const providerTx of providerTransactions) {
     const merchantNameNormalized = normalizeMerchant(providerTx.rawDescription);
-    const computedCategory = providerTx.providerCategory || "unknown";
+    const computedCategory = categorizeTransaction({
+      merchantNameNormalized,
+      rawDescription: providerTx.rawDescription,
+      amount: providerTx.amount,
+      transactionType: providerTx.transactionType,
+      providerCategory: providerTx.providerCategory,
+    });
 
     // Check if transaction already exists
     const existing = await Transaction.findOne({
@@ -115,10 +123,13 @@ async function applyRulesToTransactions(
     bookedAt: { $gte: startOfMonth, $lte: endOfMonth },
   }).select("computedCategory amount");
 
-  // Calculate spent per category (excluding the new transactions we're about to evaluate)
+  // Calculate spent per category (excluding the new transactions we're about
+  // to evaluate). Income and transfers are skipped -- counting a salary
+  // credit or a savings top-up as "spend" would blow past every budget.
   const categorySpend: Record<string, number> = {};
   for (const tx of existingTransactions) {
-    const category = tx.computedCategory || "unknown";
+    const category = tx.computedCategory || DEFAULT_CATEGORY;
+    if (!isSpendingCategory(category)) continue;
     categorySpend[category] =
       (categorySpend[category] || 0) + Math.abs(tx.amount);
   }
@@ -136,10 +147,11 @@ async function applyRulesToTransactions(
 
   // Add categories that have transactions but no budget
   const categoriesWithTransactions = new Set([
-    ...existingTransactions.map((t) => t.computedCategory || "unknown"),
-    ...transactions.map((t) => t.computedCategory || "unknown"),
+    ...existingTransactions.map((t) => t.computedCategory || DEFAULT_CATEGORY),
+    ...transactions.map((t) => t.computedCategory || DEFAULT_CATEGORY),
   ]);
   for (const category of categoriesWithTransactions) {
+    if (!isSpendingCategory(category)) continue;
     if (!budgetSnapshot.find((b) => b.category === category)) {
       budgetSnapshot.push({
         category,
@@ -177,8 +189,10 @@ async function applyRulesToTransactions(
     });
 
     // Update budget snapshot for next transaction
-    const category = transaction.computedCategory || "unknown";
-    const budget = budgetSnapshot.find((b) => b.category === category);
+    const category = transaction.computedCategory || DEFAULT_CATEGORY;
+    const budget = isSpendingCategory(category)
+      ? budgetSnapshot.find((b) => b.category === category)
+      : undefined;
     if (budget) {
       budget.spent += Math.abs(transaction.amount);
     }

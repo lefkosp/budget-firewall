@@ -5,6 +5,7 @@ import { Transaction } from "../models/Transaction";
 import { Types } from "mongoose";
 import multer from "multer";
 import { importTransactionsFromCSV } from "../services/csvImport.service";
+import { recategorizeUserTransactions } from "../services/categorize.service";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -154,6 +155,21 @@ router.get(
         ownerUserId: new Types.ObjectId(userId),
       });
       res.json(categories.sort());
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+// Re-run normalization + categorization over existing history. Safe to call
+// repeatedly; manual category overrides are preserved.
+router.post(
+  "/recategorize",
+  authenticateToken,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const result = await recategorizeUserTransactions(req.userId!);
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

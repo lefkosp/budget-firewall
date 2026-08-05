@@ -19,6 +19,10 @@ export const OTHER_COLOR = "var(--chart-8)";
  * changes. Categories not in this list (and anything beyond it) fall back to
  * OTHER_COLOR rather than generating a new hue. Red is deliberately excluded
  * here; it's reserved for --destructive (rule violations).
+ *
+ * These seven are the first seven of SPENDING_CATEGORIES in
+ * backend/src/constants/categories.ts -- the categorizer can only emit names
+ * from that list, so keep the two in sync when either changes.
  */
 const CATEGORY_COLORS: Record<string, string> = {
   Groceries: "var(--chart-1)",

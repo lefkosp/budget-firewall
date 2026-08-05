@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 import { Rule, RuleType } from "../models/Rule";
 import { BudgetCategory } from "../models/BudgetCategory";
+import { SPENDING_CATEGORIES } from "../constants/categories";
 
 /**
  * Ensures default rules and budget categories exist for a user.
@@ -48,20 +49,11 @@ export async function ensureUserDefaults(userId: string): Promise<void> {
   });
 
   if (existingBudgetsCount === 0) {
-    // Create default budget categories
-    const defaultCategories = [
-      "Food",
-      "Shopping",
-      "Transport",
-      "Bills",
-      "Entertainment",
-      "Gambling",
-      "Crypto",
-      "Other",
-    ];
-
+    // One budget category per spending category, so budgets and transaction
+    // categories always line up. Non-spend categories (Income, Transfers,
+    // Fees) deliberately get none -- you don't budget your salary.
     await BudgetCategory.insertMany(
-      defaultCategories.map((name) => ({
+      SPENDING_CATEGORIES.map((name) => ({
         ownerUserId: new Types.ObjectId(userId),
         name,
         monthlyLimit: 0, // No limit by default

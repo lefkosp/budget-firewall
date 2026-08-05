@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
+import { DEFAULT_CATEGORY } from "../constants/categories";
 
 export enum ApprovalStatus {
   NEUTRAL = "NEUTRAL",
@@ -19,6 +20,8 @@ export interface ITransaction extends Document {
   merchantNameNormalized: string;
   providerCategory?: string;
   computedCategory: string;
+  /** Set when the user picks a category by hand, so recategorization skips it. */
+  categoryOverridden: boolean;
   // Additional CSV fields
   transactionType?: string; // e.g., "CARD PAYMENT", "TRANSFER"
   product?: string; // e.g., "Current", "Savings"
@@ -79,7 +82,11 @@ const TransactionSchema = new Schema<ITransaction>(
     },
     computedCategory: {
       type: String,
-      default: "unknown",
+      default: DEFAULT_CATEGORY,
+    },
+    categoryOverridden: {
+      type: Boolean,
+      default: false,
     },
     transactionType: {
       type: String,
