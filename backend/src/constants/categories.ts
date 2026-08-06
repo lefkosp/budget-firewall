@@ -41,6 +41,16 @@ export type SpendingCategory = (typeof SPENDING_CATEGORIES)[number];
 export type NonSpendCategory = (typeof NON_SPEND_CATEGORIES)[number];
 export type Category = SpendingCategory | NonSpendCategory;
 
+export const ALL_CATEGORIES: readonly Category[] = [
+  ...SPENDING_CATEGORIES,
+  ...NON_SPEND_CATEGORIES,
+];
+const ALL_CATEGORIES_SET: ReadonlySet<string> = new Set(ALL_CATEGORIES);
+
+export function isValidCategory(category: string): category is Category {
+  return ALL_CATEGORIES_SET.has(category);
+}
+
 /** Fallback when nothing matches. Deliberately a real category, not "unknown". */
 export const DEFAULT_CATEGORY: SpendingCategory = "Other";
 

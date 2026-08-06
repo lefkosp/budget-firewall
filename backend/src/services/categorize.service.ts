@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 import { Transaction } from "../models/Transaction";
+import { MerchantCategoryMapping } from "../models/MerchantCategoryMapping";
 import { normalizeMerchant } from "../utils/normalizeMerchant";
 import {
   Category,
@@ -156,11 +157,26 @@ function matchesAny(haystack: string, patterns: RegExp[]): boolean {
  * Returns the category for a transaction. Never returns "unknown" -- the
  * worst case is "Other", which is a real, budgetable category.
  */
-export function categorizeTransaction(input: CategorizeInput): Category {
+/**
+ * merchantMap: a user's manual "this merchant is always X" corrections
+ * (normalized merchant name -> category), loaded once by the caller and
+ * passed in rather than queried per-call so this stays a pure, fast
+ * function. Checked first -- a manual correction outranks every pattern
+ * below, including fee/transfer/income detection.
+ */
+export function categorizeTransaction(
+  input: CategorizeInput,
+  merchantMap?: Map<string, string>
+): Category {
   const merchant = (input.merchantNameNormalized || "").toLowerCase();
   const raw = (input.rawDescription || "").toLowerCase();
   const type = (input.transactionType || "").toLowerCase();
   const haystack = `${merchant} ${raw}`.trim();
+
+  const mapped = merchantMap?.get(merchant);
+  if (mapped) {
+    return mapped as Category;
+  }
 
   // Fees before transfers: "ATM withdrawal fee" is a fee, not a withdrawal.
   if (matchesAny(haystack, FEE_PATTERNS)) {
@@ -191,6 +207,21 @@ export function categorizeTransaction(input: CategorizeInput): Category {
   return DEFAULT_CATEGORY;
 }
 
+/**
+ * Loads a user's manual merchant->category corrections as a lookup map.
+ * Load once per import/recategorize batch and pass to categorizeTransaction
+ * -- this is the only place that touches the database for it.
+ */
+export async function loadMerchantCategoryMap(
+  userId: string
+): Promise<Map<string, string>> {
+  const mappings = await MerchantCategoryMapping.find({
+    ownerUserId: new Types.ObjectId(userId),
+  }).select("merchantNameNormalized category");
+
+  return new Map(mappings.map((m) => [m.merchantNameNormalized, m.category]));
+}
+
 export interface RecategorizeResult {
   examined: number;
   updated: number;
@@ -212,11 +243,12 @@ export interface RecategorizeResult {
 export async function recategorizeUserTransactions(
   userId: string
 ): Promise<RecategorizeResult> {
-  const transactions = await Transaction.find({
-    ownerUserId: new Types.ObjectId(userId),
-  }).select(
-    "merchantNameNormalized rawDescription amount transactionType providerCategory computedCategory categoryOverridden"
-  );
+  const [transactions, merchantMap] = await Promise.all([
+    Transaction.find({ ownerUserId: new Types.ObjectId(userId) }).select(
+      "merchantNameNormalized rawDescription amount transactionType providerCategory computedCategory categoryOverridden"
+    ),
+    loadMerchantCategoryMap(userId),
+  ]);
 
   let updated = 0;
   let skippedOverridden = 0;
@@ -228,13 +260,16 @@ export async function recategorizeUserTransactions(
     }
 
     const merchantNameNormalized = normalizeMerchant(tx.rawDescription);
-    const category = categorizeTransaction({
-      merchantNameNormalized,
-      rawDescription: tx.rawDescription,
-      amount: tx.amount,
-      transactionType: tx.transactionType,
-      providerCategory: tx.providerCategory,
-    });
+    const category = categorizeTransaction(
+      {
+        merchantNameNormalized,
+        rawDescription: tx.rawDescription,
+        amount: tx.amount,
+        transactionType: tx.transactionType,
+        providerCategory: tx.providerCategory,
+      },
+      merchantMap
+    );
 
     if (
       category !== tx.computedCategory ||

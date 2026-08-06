@@ -9,7 +9,7 @@ import { BudgetCategory } from "../models/BudgetCategory";
 import { normalizeMerchant } from "../utils/normalizeMerchant";
 import { evaluateTransaction, BudgetSnapshot } from "../utils/evaluateRules";
 import { ensureUserDefaults } from "./user.service";
-import { categorizeTransaction } from "./categorize.service";
+import { categorizeTransaction, loadMerchantCategoryMap } from "./categorize.service";
 import { DEFAULT_CATEGORY, isSpendingCategory } from "../constants/categories";
 
 export async function syncAndProcessTransactions(
@@ -35,18 +35,23 @@ export async function syncAndProcessTransactions(
   // Ensure user has default rules and budgets
   await ensureUserDefaults(userId);
 
+  const merchantMap = await loadMerchantCategoryMap(userId);
+
   const newTransactions: ITransaction[] = [];
   let duplicateCount = 0;
 
   for (const providerTx of providerTransactions) {
     const merchantNameNormalized = normalizeMerchant(providerTx.rawDescription);
-    const computedCategory = categorizeTransaction({
-      merchantNameNormalized,
-      rawDescription: providerTx.rawDescription,
-      amount: providerTx.amount,
-      transactionType: providerTx.transactionType,
-      providerCategory: providerTx.providerCategory,
-    });
+    const computedCategory = categorizeTransaction(
+      {
+        merchantNameNormalized,
+        rawDescription: providerTx.rawDescription,
+        amount: providerTx.amount,
+        transactionType: providerTx.transactionType,
+        providerCategory: providerTx.providerCategory,
+      },
+      merchantMap
+    );
 
     // Check if transaction already exists
     const existing = await Transaction.findOne({

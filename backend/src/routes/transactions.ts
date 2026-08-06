@@ -6,6 +6,8 @@ import { Types } from "mongoose";
 import multer from "multer";
 import { importTransactionsFromCSV } from "../services/csvImport.service";
 import { recategorizeUserTransactions } from "../services/categorize.service";
+import { setTransactionCategory } from "../services/categoryOverride.service";
+import { isValidCategory } from "../constants/categories";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -155,6 +157,42 @@ router.get(
         ownerUserId: new Types.ObjectId(userId),
       });
       res.json(categories.sort());
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+// Manually set a transaction's category. Marks it as overridden so
+// recategorize never clobbers it. With applyToAllFromMerchant, also
+// remembers the correction for every future import from that merchant and
+// applies it to the user's other existing transactions from them.
+router.patch(
+  "/:id",
+  authenticateToken,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { category, applyToAllFromMerchant } = req.body as {
+        category?: string;
+        applyToAllFromMerchant?: boolean;
+      };
+
+      if (!category || !isValidCategory(category)) {
+        return res.status(400).json({ error: "Invalid category" });
+      }
+
+      const result = await setTransactionCategory(
+        req.userId!,
+        req.params.id,
+        category,
+        Boolean(applyToAllFromMerchant)
+      );
+
+      if (!result) {
+        return res.status(404).json({ error: "Transaction not found" });
+      }
+
+      res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

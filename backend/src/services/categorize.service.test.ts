@@ -96,4 +96,38 @@ describe("categorizeTransaction", () => {
     // nearly every real import uncategorized.
     expect(categorize("ZZZ UNRECOGNIZABLE")).not.toBe("unknown");
   });
+
+  describe("manual merchant mapping", () => {
+    it("overrides the keyword table for a mapped merchant", () => {
+      const map = new Map([["tesco stores", "Entertainment"]]);
+      // Would ordinarily be Groceries -- the user's correction wins.
+      expect(categorize("CARD PAYMENT TO TESCO STORES")).toBe("Groceries");
+      expect(
+        categorizeTransaction(
+          { merchantNameNormalized: "tesco stores", rawDescription: "CARD PAYMENT TO TESCO STORES", amount: -1000 },
+          map
+        )
+      ).toBe("Entertainment");
+    });
+
+    it("outranks fee/transfer/income detection too", () => {
+      const map = new Map([["acme corp", "Subscriptions"]]);
+      expect(
+        categorizeTransaction(
+          { merchantNameNormalized: "acme corp", rawDescription: "SALARY FROM ACME CORP", amount: 300000 },
+          map
+        )
+      ).toBe("Subscriptions");
+    });
+
+    it("falls through to the table for merchants not in the map", () => {
+      const map = new Map([["some other merchant", "Health"]]);
+      expect(
+        categorizeTransaction(
+          { merchantNameNormalized: "netflix", rawDescription: "NETFLIX", amount: -1000 },
+          map
+        )
+      ).toBe("Subscriptions");
+    });
+  });
 });
