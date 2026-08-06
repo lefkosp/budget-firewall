@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ColumnDef, HeaderContext, OnChangeFn, SortingState } from "@tanstack/react-table";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,14 +11,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ArrowUpDown, Filter, X, ChevronDown, ChevronUp } from "lucide-react";
 import { Pagination } from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -69,7 +62,10 @@ function sortableHeader(label: string) {
   };
 }
 
-const columns: ColumnDef<TransactionRow, unknown>[] = [
+function baseColumns(
+  onCategoryChange: (tx: Transaction, category: string) => void
+): ColumnDef<TransactionRow, unknown>[] {
+  return [
   {
     id: "bookedAt",
     header: sortableHeader("Date"),
@@ -114,7 +110,13 @@ const columns: ColumnDef<TransactionRow, unknown>[] = [
   {
     id: "computedCategory",
     header: sortableHeader("Category"),
-    cell: ({ row }) => <CategoryBadge category={row.original.computedCategory} />,
+    cell: ({ row }) => (
+      <CategoryBadge
+        category={row.original.computedCategory}
+        editable
+        onSelect={(category) => onCategoryChange(row.original, category)}
+      />
+    ),
   },
   {
     id: "transactionType",
@@ -160,7 +162,8 @@ const columns: ColumnDef<TransactionRow, unknown>[] = [
       <StatusBadge status={row.original.approvalStatus} repeat={row.original.isRepeatViolation} />
     ),
   },
-];
+  ];
+}
 
 interface TransactionsResponse {
   data: Transaction[];
@@ -219,45 +222,45 @@ export default function TransactionsPage() {
     fetchCategories();
   }, []);
 
-  useEffect(() => {
-    async function fetchTransactions() {
-      try {
-        setLoading(true);
-        const params = new URLSearchParams();
+  const fetchTransactions = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
 
-        // Add filters to params
-        if (filters.status) params.append("status", filters.status);
-        if (filters.isGambling) params.append("isGambling", "true");
-        if (filters.isCrypto) params.append("isCrypto", "true");
-        if (filters.isBlacklisted) params.append("isBlacklisted", "true");
-        if (filters.category) params.append("category", filters.category);
-        if (filters.merchant) params.append("merchant", filters.merchant);
-        if (filters.month) params.append("month", filters.month);
-        if (filters.startDate) params.append("startDate", filters.startDate);
-        if (filters.endDate) params.append("endDate", filters.endDate);
-        if (filters.minAmount) params.append("minAmount", (parseFloat(filters.minAmount) * 100).toString());
-        if (filters.maxAmount) params.append("maxAmount", (parseFloat(filters.maxAmount) * 100).toString());
-        if (filters.sortBy) params.append("sortBy", filters.sortBy);
-        if (filters.sortOrder) params.append("sortOrder", filters.sortOrder);
-        
-        // Add pagination params
-        const limit = 100; // Default limit per page
-        params.append("page", filters.page.toString());
-        params.append("limit", limit.toString());
+      // Add filters to params
+      if (filters.status) params.append("status", filters.status);
+      if (filters.isGambling) params.append("isGambling", "true");
+      if (filters.isCrypto) params.append("isCrypto", "true");
+      if (filters.isBlacklisted) params.append("isBlacklisted", "true");
+      if (filters.category) params.append("category", filters.category);
+      if (filters.merchant) params.append("merchant", filters.merchant);
+      if (filters.month) params.append("month", filters.month);
+      if (filters.startDate) params.append("startDate", filters.startDate);
+      if (filters.endDate) params.append("endDate", filters.endDate);
+      if (filters.minAmount) params.append("minAmount", (parseFloat(filters.minAmount) * 100).toString());
+      if (filters.maxAmount) params.append("maxAmount", (parseFloat(filters.maxAmount) * 100).toString());
+      if (filters.sortBy) params.append("sortBy", filters.sortBy);
+      if (filters.sortOrder) params.append("sortOrder", filters.sortOrder);
 
-        const url = `/api/transactions${params.toString() ? "?" + params.toString() : ""}`;
-        const response = await api.get<TransactionsResponse>(url);
-        setTransactions(response.data);
-        setPagination(response.pagination);
-      } catch (error) {
-        console.error("Error fetching transactions:", error);
-      } finally {
-        setLoading(false);
-      }
+      // Add pagination params
+      const limit = 100; // Default limit per page
+      params.append("page", filters.page.toString());
+      params.append("limit", limit.toString());
+
+      const url = `/api/transactions${params.toString() ? "?" + params.toString() : ""}`;
+      const response = await api.get<TransactionsResponse>(url);
+      setTransactions(response.data);
+      setPagination(response.pagination);
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+    } finally {
+      setLoading(false);
     }
-
-    fetchTransactions();
   }, [filters]);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
 
   const updateFilters = (newFilters: Partial<typeof filters>) => {
     // Reset to page 1 when filters change (unless page is explicitly set)
@@ -315,6 +318,48 @@ export default function TransactionsPage() {
         (violationCounts.get(tx.merchantNameNormalized) ?? 0) >= 2,
     }));
   }, [transactions]);
+
+  const handleCategoryChange = useCallback(
+    async (tx: Transaction, category: string) => {
+      const merchantLabel = tx.merchantNameNormalized || "this merchant";
+      try {
+        await api.patch(`/api/transactions/${tx.id}`, { category });
+        setSelectedTransaction((current) =>
+          current?.id === tx.id ? { ...current, computedCategory: category } : current
+        );
+        toast.success(`Category updated to ${category}`, {
+          action: {
+            label: `Apply to all "${merchantLabel}"`,
+            onClick: async () => {
+              try {
+                const result = await api.patch<{ appliedToCount: number }>(
+                  `/api/transactions/${tx.id}`,
+                  { category, applyToAllFromMerchant: true }
+                );
+                toast.success(
+                  result.appliedToCount > 0
+                    ? `Updated ${result.appliedToCount} more transaction${result.appliedToCount === 1 ? "" : "s"}`
+                    : "No other transactions from this merchant"
+                );
+                fetchTransactions();
+              } catch (err: any) {
+                toast.error(err.message || "Failed to apply to all");
+              }
+            },
+          },
+        });
+        fetchTransactions();
+      } catch (err: any) {
+        toast.error(err.message || "Failed to update category");
+      }
+    },
+    [fetchTransactions]
+  );
+
+  const columns: ColumnDef<TransactionRow, unknown>[] = useMemo(
+    () => baseColumns(handleCategoryChange),
+    [handleCategoryChange]
+  );
 
   const clearFilters = () => {
     const cleared = {
@@ -695,6 +740,7 @@ export default function TransactionsPage() {
         onOpenChange={(open) => {
           if (!open) setSelectedTransaction(null);
         }}
+        onCategoryChange={handleCategoryChange}
       />
     </div>
   );

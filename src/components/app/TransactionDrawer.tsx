@@ -16,6 +16,7 @@ interface TransactionDrawerProps {
   transaction: Transaction | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCategoryChange?: (transaction: Transaction, category: string) => void;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -27,8 +28,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-/** Read-only transaction detail view. Approval/note actions land once those APIs exist. */
-export function TransactionDrawer({ transaction, open, onOpenChange }: TransactionDrawerProps) {
+/** Transaction detail view. Approval/note actions land once those APIs exist. */
+export function TransactionDrawer({
+  transaction,
+  open,
+  onOpenChange,
+  onCategoryChange,
+}: TransactionDrawerProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="overflow-y-auto">
@@ -63,7 +69,11 @@ export function TransactionDrawer({ transaction, open, onOpenChange }: Transacti
                 })}
               </Field>
               <Field label="Category">
-                <CategoryBadge category={transaction.computedCategory} />
+                <CategoryBadge
+                  category={transaction.computedCategory}
+                  editable={Boolean(onCategoryChange)}
+                  onSelect={(category) => onCategoryChange?.(transaction, category)}
+                />
               </Field>
               <Field label="Type">{transaction.transactionType || "-"}</Field>
               <Field label="Product">{transaction.product || "-"}</Field>

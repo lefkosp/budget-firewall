@@ -14,6 +14,26 @@ const NON_SPEND_CATEGORIES: ReadonlySet<string> = new Set([
   "Fees",
 ]);
 
+/**
+ * The categories a user can manually assign. Must match
+ * backend/src/constants/categories.ts's SPENDING_CATEGORIES -- income,
+ * transfers, and fees are detected automatically and aren't offered here,
+ * since hand-assigning them is rarely what a user editing a category badge
+ * actually wants.
+ */
+export const EDITABLE_CATEGORIES = [
+  "Groceries",
+  "Eating Out",
+  "Transport",
+  "Bills & Utilities",
+  "Subscriptions",
+  "Shopping",
+  "Entertainment",
+  "Health",
+  "Travel",
+  "Other",
+] as const;
+
 export function isSpendingCategory(category: string | undefined): boolean {
   return !NON_SPEND_CATEGORIES.has(category ?? "");
 }
