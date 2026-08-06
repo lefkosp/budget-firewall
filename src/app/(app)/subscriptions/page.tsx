@@ -99,7 +99,7 @@ export default function SubscriptionsPage() {
           <Skeleton className="h-9 w-48" />
           <Skeleton className="h-4 w-64" />
         </div>
-        <div className="flex-1 overflow-hidden space-y-6">
+        <div className="flex-1 min-h-0 overflow-hidden space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
             <Skeleton className="h-28 w-full" />
             <Skeleton className="h-28 w-full" />
@@ -126,7 +126,7 @@ export default function SubscriptionsPage() {
           description="Once you've imported a few months of history, charges that repeat on a regular schedule and for a stable amount will show up here automatically."
         />
       ) : (
-        <div className="flex-1 overflow-auto space-y-6 animate-in fade-in duration-300">
+        <div className="flex-1 min-h-0 overflow-auto space-y-6 animate-in fade-in duration-300">
           <div className="grid gap-6 md:grid-cols-2">
             <StatCard
               label="Monthly Recurring Cost"

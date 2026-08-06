@@ -66,7 +66,7 @@ export default function ConnectPage() {
         description="Connect your Revolut account to start tracking transactions"
       />
 
-      <div className="flex-1 overflow-auto space-y-8">
+      <div className="flex-1 min-h-0 overflow-auto space-y-8">
 
       <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
         <CardHeader>

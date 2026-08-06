@@ -48,7 +48,7 @@ export function DataTable<TData, TValue>({
 
   return (
     <Table>
-      <TableHeader>
+      <TableHeader className="sticky top-0 z-10 bg-card">
         {table.getHeaderGroups().map((headerGroup) => (
           <TableRow key={headerGroup.id} className="border-border/50">
             {headerGroup.headers.map((header) => (

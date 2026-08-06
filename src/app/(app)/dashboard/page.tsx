@@ -183,7 +183,7 @@ export default function DashboardPage() {
           <Skeleton className="h-9 w-40" />
           <Skeleton className="h-4 w-64" />
         </div>
-        <div className="flex-1 overflow-hidden space-y-8">
+        <div className="flex-1 min-h-0 overflow-hidden space-y-8">
           <div className="grid gap-6 md:grid-cols-3">
             <Skeleton className="h-28 w-full" />
             <Skeleton className="h-28 w-full" />
@@ -207,7 +207,7 @@ export default function DashboardPage() {
     <div className="h-full flex flex-col p-8 overflow-hidden">
       <PageHeader title="Dashboard" description="Overview of your financial activity" />
 
-      <div className="flex-1 overflow-auto space-y-8 animate-in fade-in duration-300">
+      <div className="flex-1 min-h-0 overflow-auto space-y-8 animate-in fade-in duration-300">
         <div className="grid gap-6 md:grid-cols-3">
           <StatCard
             label="Total Spend"

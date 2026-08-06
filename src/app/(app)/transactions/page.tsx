@@ -418,7 +418,7 @@ export default function TransactionsPage() {
           <Skeleton className="h-9 w-20" />
           <Skeleton className="h-9 w-28" />
         </div>
-        <div className="flex-1 rounded-lg border border-border/50 overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-0 rounded-lg border border-border/50 overflow-hidden flex flex-col">
           <div className="border-b border-border/50 p-4 flex-shrink-0">
             <Skeleton className="h-4 w-full" />
           </div>
@@ -710,9 +710,9 @@ export default function TransactionsPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-border/50 bg-card/50 backdrop-blur-sm flex-1 flex flex-col overflow-hidden animate-in fade-in duration-300">
-          <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
-            <div className="overflow-auto flex-1">
+        <Card className="border-border/50 bg-card/50 backdrop-blur-sm flex-1 min-h-0 flex flex-col overflow-hidden animate-in fade-in duration-300">
+          <CardContent className="p-0 flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-hidden">
               <DataTable
                 columns={columns}
                 data={rows}

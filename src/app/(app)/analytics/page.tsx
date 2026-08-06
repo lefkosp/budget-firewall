@@ -75,7 +75,7 @@ export default function AnalyticsPage() {
           <Skeleton className="h-9 w-40" />
           <Skeleton className="h-4 w-64" />
         </div>
-        <div className="flex-1 overflow-hidden space-y-8">
+        <div className="flex-1 min-h-0 overflow-hidden space-y-8">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="space-y-4">
               <Skeleton className="h-6 w-48" />
@@ -120,7 +120,7 @@ export default function AnalyticsPage() {
         description="Comprehensive financial analytics and insights"
       />
 
-      <div className="flex-1 overflow-auto space-y-8 animate-in fade-in duration-300">
+      <div className="flex-1 min-h-0 overflow-auto space-y-8 animate-in fade-in duration-300">
         {/* Transaction Type Analytics */}
         {transactionTypeStats.length > 0 && (
           <div className="space-y-6">

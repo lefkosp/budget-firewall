@@ -98,7 +98,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             ))}
           </div>
         </aside>
-        <main className="flex-1 overflow-hidden bg-background p-8 space-y-6">
+        <main className="flex-1 min-h-0 overflow-hidden bg-background p-8 space-y-6">
           <Skeleton className="h-9 w-64" />
           <div className="grid gap-6 md:grid-cols-3">
             <Skeleton className="h-28 w-full" />
@@ -180,7 +180,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <div className="flex items-center gap-2 border-b border-border/50 px-4 py-2 md:hidden">
           <SidebarTrigger />
         </div>
-        <div className="flex-1 overflow-hidden bg-background">{children}</div>
+        <div className="flex-1 min-h-0 overflow-hidden bg-background">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   );

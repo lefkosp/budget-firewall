@@ -91,7 +91,7 @@ export default function ImportPage() {
         </p>
       </div>
 
-      <div className="flex-1 overflow-auto space-y-8">
+      <div className="flex-1 min-h-0 overflow-auto space-y-8">
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
