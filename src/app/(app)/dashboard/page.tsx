@@ -61,6 +61,24 @@ export default function DashboardPage() {
     gamblingCount: 0,
     cryptoCount: 0,
   });
+  const [subscriptionsSummary, setSubscriptionsSummary] = useState<{
+    totalMonthlyCost: number;
+    count: number;
+  } | null>(null);
+
+  useEffect(() => {
+    async function fetchSubscriptions() {
+      try {
+        const result = await api.get<{ totalMonthlyCost: number; count: number }>(
+          "/api/subscriptions"
+        );
+        setSubscriptionsSummary(result);
+      } catch (error) {
+        console.error("Error fetching subscriptions summary:", error);
+      }
+    }
+    fetchSubscriptions();
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
@@ -229,6 +247,28 @@ export default function DashboardPage() {
             className="animate-in fade-in slide-in-from-bottom-1 duration-300 [animation-delay:200ms] [animation-fill-mode:backwards]"
           />
         </div>
+
+        {subscriptionsSummary && subscriptionsSummary.count > 0 && (
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardContent className="flex items-center justify-between py-6">
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-1">
+                  Recurring
+                </div>
+                <div className="text-2xl font-bold">
+                  <Money cents={subscriptionsSummary.totalMonthlyCost} currency="EUR" />
+                  <span className="text-sm font-normal text-muted-foreground ml-2">
+                    /month across {subscriptionsSummary.count} subscription
+                    {subscriptionsSummary.count !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              </div>
+              <Button variant="outline" className="border-border/50" asChild>
+                <Link href="/subscriptions">View Subscriptions</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Transaction Type Analytics */}
         {transactionTypeStats.length > 0 && (

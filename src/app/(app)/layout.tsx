@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   BarChart3,
   ArrowLeftRight,
+  Repeat,
   PiggyBank,
   ShieldAlert,
   Target,
@@ -52,6 +53,7 @@ const navGroups = [
     label: "Money",
     items: [
       { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
+      { href: "/subscriptions", label: "Subscriptions", icon: Repeat },
       { href: "/budgets", label: "Budgets", icon: PiggyBank },
     ],
   },
