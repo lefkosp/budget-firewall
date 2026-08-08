@@ -6,10 +6,12 @@ import {
 } from "../models/Transaction";
 import { Rule } from "../models/Rule";
 import { BudgetCategory } from "../models/BudgetCategory";
+import { Intent, IntentStatus } from "../models/Intent";
 import { normalizeMerchant } from "../utils/normalizeMerchant";
 import { evaluateTransaction, BudgetSnapshot } from "../utils/evaluateRules";
 import { ensureUserDefaults } from "./user.service";
 import { categorizeTransaction, loadMerchantCategoryMap } from "./categorize.service";
+import { matchIntents } from "./intentMatch.service";
 import { DEFAULT_CATEGORY, isSpendingCategory } from "../constants/categories";
 
 export async function syncAndProcessTransactions(
@@ -95,6 +97,7 @@ export async function syncAndProcessTransactions(
     );
     await applyRulesToTransactions(userId, newTransactions);
     console.log(`[Transaction Service] Rules applied successfully`);
+    await applyIntentMatching(userId, newTransactions);
   } else {
     console.log(`[Transaction Service] No new transactions to process`);
   }
@@ -201,5 +204,53 @@ async function applyRulesToTransactions(
     if (budget) {
       budget.spent += Math.abs(transaction.amount);
     }
+  }
+}
+
+/**
+ * Pre-approves newly-imported transactions that match a pending intent
+ * ("I'm about to spend ~€150 at Ikea"), so an expected purchase doesn't sit
+ * in Pending or get flagged as a Violation just because it crossed the
+ * approval threshold or a rule. A matched transaction is marked APPROVED
+ * outright and carries matchedIntentId as provenance; the intent itself is
+ * marked APPROVED so it isn't matched again by a later import.
+ */
+async function applyIntentMatching(
+  userId: string,
+  transactions: ITransaction[]
+): Promise<void> {
+  const ownerUserId = new Types.ObjectId(userId);
+  const pendingIntents = await Intent.find({
+    ownerUserId,
+    status: IntentStatus.PENDING,
+  });
+
+  if (pendingIntents.length === 0) return;
+
+  const matches = matchIntents(
+    transactions.map((tx) => ({
+      id: tx._id.toString(),
+      merchantNameNormalized: tx.merchantNameNormalized,
+      amount: tx.amount,
+      bookedAt: tx.bookedAt,
+    })),
+    pendingIntents.map((intent) => ({
+      id: intent._id.toString(),
+      merchantText: intent.merchantText,
+      amount: intent.amount,
+      expiresAt: intent.expiresAt,
+    }))
+  );
+
+  if (matches.length === 0) return;
+
+  console.log(`[Transaction Service] Matched ${matches.length} transaction(s) to intents`);
+
+  for (const match of matches) {
+    await Transaction.findByIdAndUpdate(match.transactionId, {
+      matchedIntentId: new Types.ObjectId(match.intentId),
+      approvalStatus: ApprovalStatus.APPROVED,
+    });
+    await Intent.findByIdAndUpdate(match.intentId, { status: IntentStatus.APPROVED });
   }
 }

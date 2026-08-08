@@ -12,6 +12,7 @@ import bankingRoutes from "./routes/banking";
 import subscriptionsRoutes from "./routes/subscriptions";
 import budgetsRoutes from "./routes/budgets";
 import rulesRoutes from "./routes/rules";
+import intentsRoutes from "./routes/intents";
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use("/api/banking", bankingRoutes);
 app.use("/api/subscriptions", subscriptionsRoutes);
 app.use("/api/budgets", budgetsRoutes);
 app.use("/api/rules", rulesRoutes);
+app.use("/api/intents", intentsRoutes);
 
 // Error handling middleware (must be last)
 app.use(errorHandler);

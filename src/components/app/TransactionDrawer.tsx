@@ -106,6 +106,11 @@ export function TransactionDrawer({
                 />
                 <StatusBadge status={transaction.approvalStatus} />
               </div>
+              {transaction.matchedIntentId && (
+                <div className="text-xs text-muted-foreground -mt-2 mb-2">
+                  Approved via intent
+                </div>
+              )}
 
               <Separator />
 

@@ -38,6 +38,7 @@ export interface Transaction {
   isCrypto: boolean;
   isBlacklisted: boolean;
   approvalStatus: string;
+  matchedIntentId?: string;
   account: {
     name: string;
     currency: string;
