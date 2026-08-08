@@ -65,6 +65,7 @@ export default function DashboardPage() {
     totalMonthlyCost: number;
     count: number;
   } | null>(null);
+  const [budgets, setBudgets] = useState<{ name: string; monthlyLimit: number }[]>([]);
 
   useEffect(() => {
     async function fetchSubscriptions() {
@@ -78,6 +79,20 @@ export default function DashboardPage() {
       }
     }
     fetchSubscriptions();
+  }, []);
+
+  useEffect(() => {
+    async function fetchBudgets() {
+      try {
+        const result = await api.get<{ name: string; monthlyLimit: number }[]>(
+          "/api/budgets"
+        );
+        setBudgets(result);
+      } catch (error) {
+        console.error("Error fetching budgets:", error);
+      }
+    }
+    fetchBudgets();
   }, []);
 
   useEffect(() => {
@@ -176,6 +191,26 @@ export default function DashboardPage() {
   const mostCommonType = transactionTypeStats[0]?.type || "N/A";
   const totalByType = transactionTypeStats.reduce((sum, item) => sum + item.count, 0);
 
+  // Budget status for the current calendar month, from the same
+  // already-fetched transactions -- no separate month-scoped fetch needed.
+  const now = new Date();
+  const spendThisMonthByCategory: Record<string, number> = {};
+  for (const tx of onlySpending(transactions)) {
+    const d = new Date(tx.bookedAt);
+    if (d.getFullYear() !== now.getFullYear() || d.getMonth() !== now.getMonth()) continue;
+    spendThisMonthByCategory[tx.computedCategory] =
+      (spendThisMonthByCategory[tx.computedCategory] || 0) + Math.abs(tx.amount);
+  }
+  const budgetedCategories = budgets.filter((b) => b.monthlyLimit > 0);
+  const totalBudgeted = budgetedCategories.reduce((sum, b) => sum + b.monthlyLimit, 0);
+  const totalSpentAgainstBudget = budgetedCategories.reduce(
+    (sum, b) => sum + (spendThisMonthByCategory[b.name] || 0),
+    0
+  );
+  const overBudgetCount = budgetedCategories.filter(
+    (b) => (spendThisMonthByCategory[b.name] || 0) > b.monthlyLimit
+  ).length;
+
   if (loading) {
     return (
       <div className="h-full flex flex-col p-8 overflow-hidden">
@@ -265,6 +300,31 @@ export default function DashboardPage() {
               </div>
               <Button variant="outline" className="border-border/50" asChild>
                 <Link href="/subscriptions">View Subscriptions</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {budgetedCategories.length > 0 && (
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardContent className="flex items-center justify-between py-6">
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-1">Budgets</div>
+                <div className="text-2xl font-bold">
+                  <Money cents={totalSpentAgainstBudget} currency="EUR" />
+                  <span className="text-sm font-normal text-muted-foreground ml-2">
+                    of <Money cents={totalBudgeted} currency="EUR" className="text-sm" /> budgeted
+                    this month
+                  </span>
+                  {overBudgetCount > 0 && (
+                    <span className="text-sm font-normal text-serious ml-2">
+                      &middot; {overBudgetCount} over budget
+                    </span>
+                  )}
+                </div>
+              </div>
+              <Button variant="outline" className="border-border/50" asChild>
+                <Link href="/budgets">View Budgets</Link>
               </Button>
             </CardContent>
           </Card>
