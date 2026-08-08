@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { Check, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -148,6 +150,26 @@ export default function DashboardPage() {
 
     fetchData();
   }, []);
+
+  const handleDecision = useCallback(
+    async (tx: Transaction, decision: "approve" | "deny") => {
+      try {
+        const result = await api.post<{ transaction: { approvalStatus: string } }>(
+          `/api/transactions/${tx.id}/${decision}`,
+          {}
+        );
+        setTransactions((prev) =>
+          prev.map((t) =>
+            t.id === tx.id ? { ...t, approvalStatus: result.transaction.approvalStatus } : t
+          )
+        );
+        toast.success(decision === "approve" ? "Transaction approved" : "Transaction denied");
+      } catch (err: any) {
+        toast.error(err.message || `Failed to ${decision} transaction`);
+      }
+    },
+    []
+  );
 
   const pendingTransactions = transactions
     .filter((tx) => tx.approvalStatus === "PENDING")
@@ -676,7 +698,26 @@ export default function DashboardPage() {
                         <Money cents={tx.amount} currency={tx.currency} className="font-medium" />
                       </div>
                     </div>
-                    <StatusBadge status="PENDING" />
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status="PENDING" />
+                      <Button
+                        size="icon-sm"
+                        className="bg-success hover:bg-success/90 text-success-foreground"
+                        onClick={() => handleDecision(tx, "approve")}
+                        title="Approve"
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon-sm"
+                        variant="outline"
+                        className="border-destructive/50 hover:bg-destructive/20 hover:text-destructive"
+                        onClick={() => handleDecision(tx, "deny")}
+                        title="Deny"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -720,10 +761,29 @@ export default function DashboardPage() {
                         className="mt-2"
                       />
                     </div>
-                    <StatusBadge
-                      status="VIOLATION"
-                      repeat={(violationCounts.get(tx.merchantNameNormalized) ?? 0) >= 2}
-                    />
+                    <div className="flex items-center gap-2">
+                      <StatusBadge
+                        status="VIOLATION"
+                        repeat={(violationCounts.get(tx.merchantNameNormalized) ?? 0) >= 2}
+                      />
+                      <Button
+                        size="icon-sm"
+                        className="bg-success hover:bg-success/90 text-success-foreground"
+                        onClick={() => handleDecision(tx, "approve")}
+                        title="Approve"
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon-sm"
+                        variant="outline"
+                        className="border-destructive/50 hover:bg-destructive/20 hover:text-destructive"
+                        onClick={() => handleDecision(tx, "deny")}
+                        title="Deny"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>

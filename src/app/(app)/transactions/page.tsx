@@ -356,6 +356,27 @@ export default function TransactionsPage() {
     [fetchTransactions]
   );
 
+  const handleDecision = useCallback(
+    async (tx: Transaction, decision: "approve" | "deny", note?: string) => {
+      try {
+        const result = await api.post<{ transaction: { approvalStatus: string } }>(
+          `/api/transactions/${tx.id}/${decision}`,
+          { note }
+        );
+        setSelectedTransaction((current) =>
+          current?.id === tx.id
+            ? { ...current, approvalStatus: result.transaction.approvalStatus }
+            : current
+        );
+        toast.success(decision === "approve" ? "Transaction approved" : "Transaction denied");
+        fetchTransactions();
+      } catch (err: any) {
+        toast.error(err.message || `Failed to ${decision} transaction`);
+      }
+    },
+    [fetchTransactions]
+  );
+
   const columns: ColumnDef<TransactionRow, unknown>[] = useMemo(
     () => baseColumns(handleCategoryChange),
     [handleCategoryChange]
@@ -741,6 +762,8 @@ export default function TransactionsPage() {
           if (!open) setSelectedTransaction(null);
         }}
         onCategoryChange={handleCategoryChange}
+        onApprove={(tx, note) => handleDecision(tx, "approve", note)}
+        onDeny={(tx, note) => handleDecision(tx, "deny", note)}
       />
     </div>
   );

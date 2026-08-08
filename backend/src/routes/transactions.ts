@@ -7,6 +7,8 @@ import multer from "multer";
 import { importTransactionsFromCSV } from "../services/csvImport.service";
 import { recategorizeUserTransactions } from "../services/categorize.service";
 import { setTransactionCategory } from "../services/categoryOverride.service";
+import { decideTransaction, getTransactionApprovalHistory } from "../services/approval.service";
+import { ApprovalDecision } from "../models/Approval";
 import { isValidCategory } from "../constants/categories";
 
 const router = Router();
@@ -288,6 +290,75 @@ router.post(
         error.message
       );
       res.status(400).json({ error: error.message });
+    }
+  }
+);
+
+// Approve/deny a flagged or pending transaction. The owner self-approves
+// for now -- same mechanics a collaborator will use later (Phase 6), just
+// with actorUserId always equal to ownerUserId until then.
+router.post(
+  "/:id/approve",
+  authenticateToken,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { note } = req.body as { note?: string };
+      const result = await decideTransaction(
+        req.userId!,
+        req.userId!,
+        req.params.id,
+        ApprovalDecision.APPROVED,
+        note
+      );
+      if (!result) {
+        return res.status(404).json({ error: "Transaction not found" });
+      }
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+router.post(
+  "/:id/deny",
+  authenticateToken,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { note } = req.body as { note?: string };
+      const result = await decideTransaction(
+        req.userId!,
+        req.userId!,
+        req.params.id,
+        ApprovalDecision.DENIED,
+        note
+      );
+      if (!result) {
+        return res.status(404).json({ error: "Transaction not found" });
+      }
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+router.get(
+  "/:id/approvals",
+  authenticateToken,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const history = await getTransactionApprovalHistory(req.userId!, req.params.id);
+      res.json(
+        history.map((a) => ({
+          id: a._id.toString(),
+          decision: a.decision,
+          note: a.note,
+          createdAt: a.createdAt,
+        }))
+      );
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
   }
 );
