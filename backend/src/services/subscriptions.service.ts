@@ -31,6 +31,8 @@ export interface SubscriptionCandidate {
   nextExpected: string; // ISO date
   status: SubscriptionStatus;
   occurrences: number;
+  /** The most recent charge's category, when the caller provided one. */
+  computedCategory?: string;
 }
 
 interface CadenceBand {
@@ -178,6 +180,7 @@ export function detectSubscriptions(
       nextExpected: isoDate(nextExpected),
       status,
       occurrences: sorted.length,
+      computedCategory: sorted[sorted.length - 1].computedCategory,
     });
   }
 
