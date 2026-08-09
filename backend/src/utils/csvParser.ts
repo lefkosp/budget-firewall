@@ -330,31 +330,54 @@ function parseGenericFormat(
   return transactions;
 }
 
-function parseDate(dateStr: string): Date | null {
+/**
+ * Parses a date string from a bank export. Deliberately does NOT try the
+ * native `Date` constructor as a first pass for anything but ISO: for a
+ * slash- or dash-separated date it assumes US MM/DD/YYYY, which silently
+ * misparses day-first exports (Revolut, and most EU banks, use DD/MM/YYYY)
+ * for any day-of-month <= 12 -- "05/03/2025" (5 March) was becoming "3 May"
+ * with no error, no warning, just a transaction landing in the wrong month.
+ *
+ * Every branch below anchors to UTC midnight rather than local time, so the
+ * resulting calendar day doesn't drift depending on the server's timezone.
+ */
+export function parseDate(dateStr: string): Date | null {
   if (!dateStr) return null;
+  const trimmed = dateStr.trim();
 
-  // Try various date formats
-  const formats = [
-    /^\d{4}-\d{2}-\d{2}/, // YYYY-MM-DD
-    /^\d{2}\/\d{2}\/\d{4}/, // DD/MM/YYYY
-    /^\d{2}-\d{2}-\d{4}/, // DD-MM-YYYY
-    /^\d{4}\/\d{2}\/\d{2}/, // YYYY/MM/DD
-  ];
-
-  // Try parsing with Date constructor first
-  const date = new Date(dateStr);
-  if (!isNaN(date.getTime())) {
-    return date;
+  // ISO 8601 (YYYY-MM-DD, optionally with a time suffix) is unambiguous.
+  const iso = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    const [, year, month, day] = iso;
+    return toUTCDate(year, month, day);
   }
 
-  // Try manual parsing for DD/MM/YYYY
-  const ddmmyyyy = dateStr.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
-  if (ddmmyyyy) {
-    const [, day, month, year] = ddmmyyyy;
-    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+  // YYYY/MM/DD -- also unambiguous, the year always leads.
+  const ymd = trimmed.match(/^(\d{4})\/(\d{2})\/(\d{2})/);
+  if (ymd) {
+    const [, year, month, day] = ymd;
+    return toUTCDate(year, month, day);
+  }
+
+  // DD/MM/YYYY or DD-MM-YYYY -- always day-first, never falling back to a
+  // month-first interpretation regardless of whether the day is <= 12.
+  const dmy = trimmed.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+  if (dmy) {
+    const [, day, month, year] = dmy;
+    return toUTCDate(year, month, day);
   }
 
   return null;
+}
+
+function toUTCDate(year: string, month: string, day: string): Date | null {
+  const y = parseInt(year, 10);
+  const m = parseInt(month, 10);
+  const d = parseInt(day, 10);
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return isNaN(date.getTime()) ? null : date;
 }
 
 function parseAmount(amountStr: string): number | null {
