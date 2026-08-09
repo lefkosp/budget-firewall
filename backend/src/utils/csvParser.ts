@@ -14,6 +14,39 @@ export interface ParsedTransaction {
 }
 
 /**
+ * Builds a deterministic, idempotent transaction ID from the fields a CSV
+ * row actually has (no bank export we support carries its own transaction
+ * ID). Two genuinely separate transactions can share every one of those
+ * fields -- two identical coffees at the same shop on the same day, same
+ * amount -- so a bare content hash would collide and the second row would
+ * be silently dropped as a "duplicate" of the first.
+ *
+ * `occurrenceCounts` disambiguates by row order within one parse: the Nth
+ * row matching a given (account, date, amount, description) combination
+ * gets occurrence index N. Re-importing the exact same file reproduces the
+ * same row order and therefore the same IDs, so already-imported rows are
+ * still correctly recognized as duplicates -- only genuinely repeated
+ * transactions within a single import get distinct IDs now. (This doesn't
+ * fully solve re-imports whose row order differs from the original file,
+ * e.g. two overlapping exports sorted differently -- there's no way to do
+ * better than that without the source data providing a real transaction ID.)
+ */
+function buildTransactionId(
+  occurrenceCounts: Map<string, number>,
+  accountId: string,
+  bookedAt: Date,
+  amount: number,
+  description: string
+): string {
+  const baseKey = `${accountId}_${bookedAt.getTime()}_${Math.abs(amount)}_${description
+    .substring(0, 20)
+    .replace(/\s/g, "_")}`;
+  const occurrence = occurrenceCounts.get(baseKey) ?? 0;
+  occurrenceCounts.set(baseKey, occurrence + 1);
+  return `csv_${baseKey}_${occurrence}`;
+}
+
+/**
  * Detects CSV format and parses transactions
  * Supports:
  * - Revolut format (Type, Product, Started Date, Completed Date, Description, Amount, Fee, Currency, State, Balance)
@@ -86,6 +119,7 @@ function parseRevolutFormat(
   const transactions: ParsedTransaction[] = [];
   let skippedCount = 0;
   let skippedReasons: Record<string, number> = {};
+  const occurrenceCounts = new Map<string, number>();
 
   for (let i = 0; i < records.length; i++) {
     const record = records[i];
@@ -207,10 +241,13 @@ function parseRevolutFormat(
         }
       }
 
-      // Generate unique transaction ID
-      const providerTransactionId = `csv_${accountId}_${bookedAt.getTime()}_${Math.abs(
-        amount
-      )}_${description.substring(0, 20).replace(/\s/g, "_")}`;
+      const providerTransactionId = buildTransactionId(
+        occurrenceCounts,
+        accountId,
+        bookedAt,
+        amount,
+        description
+      );
 
       transactions.push({
         providerTransactionId,
@@ -249,6 +286,7 @@ function parseGenericFormat(
   const transactions: ParsedTransaction[] = [];
   let skippedCount = 0;
   let skippedReasons: Record<string, number> = {};
+  const occurrenceCounts = new Map<string, number>();
 
   for (let i = 0; i < records.length; i++) {
     const record = records[i];
@@ -300,9 +338,13 @@ function parseGenericFormat(
         continue;
       }
 
-      const providerTransactionId = `csv_${accountId}_${bookedAt.getTime()}_${Math.abs(
-        amount
-      )}_${description.substring(0, 20).replace(/\s/g, "_")}`;
+      const providerTransactionId = buildTransactionId(
+        occurrenceCounts,
+        accountId,
+        bookedAt,
+        amount,
+        description
+      );
 
       transactions.push({
         providerTransactionId,
