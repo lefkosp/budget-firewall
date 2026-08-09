@@ -135,6 +135,11 @@ const TransactionSchema = new Schema<ITransaction>(
   }
 );
 
+// Backs the CSV/bank-sync reconciliation fuzzy-match query (see
+// utils/reconcile.ts and transaction.service.ts), which narrows by owner +
+// amount + a date window before re-checking merchant/currency in memory.
+TransactionSchema.index({ ownerUserId: 1, amount: 1, bookedAt: 1 });
+
 export const Transaction = mongoose.model<ITransaction>(
   "Transaction",
   TransactionSchema

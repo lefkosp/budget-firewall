@@ -17,6 +17,7 @@ import budgetsRoutes from "./routes/budgets";
 import statsRoutes from "./routes/stats";
 import rulesRoutes from "./routes/rules";
 import intentsRoutes from "./routes/intents";
+import cronRoutes from "./routes/cron";
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use("/api/budgets", budgetsRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/rules", rulesRoutes);
 app.use("/api/intents", intentsRoutes);
+app.use("/api/cron", cronRoutes);
 
 // Error handling middleware (must be last)
 app.use(errorHandler);

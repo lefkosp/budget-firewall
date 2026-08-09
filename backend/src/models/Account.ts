@@ -5,6 +5,8 @@ export interface IAccount extends Document {
   providerAccountId: string;
   name: string;
   currency: string;
+  /** Wall-clock time of the last successful sync -- the cursor for the next sync's date_from window (see utils/syncWindow.ts). Unset means never synced. */
+  lastSyncedAt?: Date;
   createdAt: Date;
 }
 
@@ -28,6 +30,9 @@ const AccountSchema = new Schema<IAccount>(
     currency: {
       type: String,
       required: true,
+    },
+    lastSyncedAt: {
+      type: Date,
     },
   },
   {

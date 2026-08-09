@@ -6,15 +6,18 @@ export const CSRF_HEADER_NAME = "x-csrf-token";
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 /**
- * Routes with no existing session to hijack -- protected by rate limiting
- * instead of CSRF, since a pre-auth request carries no cookie-based
- * authority for a forged cross-site request to abuse.
+ * Routes that never rely on the cookie session CSRF exists to protect:
+ * login/register/reset are pre-auth (no session to hijack yet, guarded by
+ * rate limiting instead), and the cron sweep authenticates via a shared
+ * secret header rather than cookies at all, so a browser's cookie jar has
+ * no bearing on it either way.
  */
 const CSRF_EXEMPT_PATHS = new Set([
   "/api/auth/login",
   "/api/auth/register",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
+  "/api/cron/sync-all",
 ]);
 
 /**

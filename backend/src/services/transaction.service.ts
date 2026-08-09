@@ -14,6 +14,7 @@ import { categorizeTransaction, loadMerchantCategoryMap } from "./categorize.ser
 import { matchIntents } from "./intentMatch.service";
 import { DEFAULT_CATEGORY, isSpendingCategory } from "../constants/categories";
 import { startOfUTCMonth, endOfUTCMonth } from "../utils/monthWindow";
+import { findFuzzyDuplicate, DATE_WINDOW_DAYS } from "../utils/reconcile";
 
 export async function syncAndProcessTransactions(
   userId: string,
@@ -29,7 +30,8 @@ export async function syncAndProcessTransactions(
     product?: string;
     startedDate?: Date;
     balance?: number;
-  }>
+  }>,
+  options: { enableFuzzyDedupe?: boolean } = {}
 ): Promise<ITransaction[]> {
   console.log(
     `[Transaction Service] Syncing ${providerTransactions.length} transactions for account ${accountId}`
@@ -42,6 +44,7 @@ export async function syncAndProcessTransactions(
 
   const newTransactions: ITransaction[] = [];
   let duplicateCount = 0;
+  let fuzzyDuplicateCount = 0;
 
   for (const providerTx of providerTransactions) {
     const merchantNameNormalized = normalizeMerchant(providerTx.rawDescription);
@@ -61,34 +64,79 @@ export async function syncAndProcessTransactions(
       providerTransactionId: providerTx.providerTransactionId,
     });
 
-    if (!existing) {
-      // Create new transaction
-      const transaction = await Transaction.create({
+    if (existing) {
+      duplicateCount++;
+      continue;
+    }
+
+    // Real-provider syncs only: has this bank transaction already been
+    // imported once via CSV, under a synthetic csv_* ID? A DB-side prefilter
+    // (index-assisted) narrows the candidate pool; findFuzzyDuplicate does
+    // the actual match logic and re-checks everything itself either way.
+    if (options.enableFuzzyDedupe) {
+      const windowMs = DATE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+      const candidates = await Transaction.find({
         ownerUserId: new Types.ObjectId(userId),
-        accountId: new Types.ObjectId(accountId),
-        providerTransactionId: providerTx.providerTransactionId,
-        bookedAt: providerTx.bookedAt,
-        amount: providerTx.amount,
         currency: providerTx.currency,
-        rawDescription: providerTx.rawDescription,
-        merchantNameNormalized,
-        providerCategory: providerTx.providerCategory || undefined,
-        computedCategory,
-        transactionType: providerTx.transactionType,
-        product: providerTx.product,
-        startedDate: providerTx.startedDate,
-        balance: providerTx.balance,
-        approvalStatus: ApprovalStatus.NEUTRAL,
+        amount: providerTx.amount,
+        bookedAt: {
+          $gte: new Date(providerTx.bookedAt.getTime() - windowMs),
+          $lte: new Date(providerTx.bookedAt.getTime() + windowMs),
+        },
+        providerTransactionId: /^csv_/,
       });
 
-      newTransactions.push(transaction);
-    } else {
-      duplicateCount++;
+      const fuzzyMatch = findFuzzyDuplicate(
+        { bookedAt: providerTx.bookedAt, amount: providerTx.amount, currency: providerTx.currency, merchantNameNormalized },
+        candidates.map((c) => ({
+          id: c._id.toString(),
+          providerTransactionId: c.providerTransactionId,
+          bookedAt: c.bookedAt,
+          amount: c.amount,
+          currency: c.currency,
+          merchantNameNormalized: c.merchantNameNormalized,
+        }))
+      );
+
+      if (fuzzyMatch) {
+        // Converge onto the fast exact-ID path for every future sync,
+        // instead of paying the fuzzy-scan cost again next time.
+        await Transaction.updateOne(
+          { _id: fuzzyMatch.id },
+          {
+            providerTransactionId: providerTx.providerTransactionId,
+            accountId: new Types.ObjectId(accountId),
+          }
+        );
+        fuzzyDuplicateCount++;
+        continue;
+      }
     }
+
+    // Create new transaction
+    const transaction = await Transaction.create({
+      ownerUserId: new Types.ObjectId(userId),
+      accountId: new Types.ObjectId(accountId),
+      providerTransactionId: providerTx.providerTransactionId,
+      bookedAt: providerTx.bookedAt,
+      amount: providerTx.amount,
+      currency: providerTx.currency,
+      rawDescription: providerTx.rawDescription,
+      merchantNameNormalized,
+      providerCategory: providerTx.providerCategory || undefined,
+      computedCategory,
+      transactionType: providerTx.transactionType,
+      product: providerTx.product,
+      startedDate: providerTx.startedDate,
+      balance: providerTx.balance,
+      approvalStatus: ApprovalStatus.NEUTRAL,
+    });
+
+    newTransactions.push(transaction);
   }
 
   console.log(
-    `[Transaction Service] Created ${newTransactions.length} new transactions, skipped ${duplicateCount} duplicates`
+    `[Transaction Service] Created ${newTransactions.length} new transactions, skipped ${duplicateCount} duplicates, ${fuzzyDuplicateCount} fuzzy-matched to CSV history`
   );
 
   // Apply rules to new transactions
