@@ -13,6 +13,7 @@ import { ensureUserDefaults } from "./user.service";
 import { categorizeTransaction, loadMerchantCategoryMap } from "./categorize.service";
 import { matchIntents } from "./intentMatch.service";
 import { DEFAULT_CATEGORY, isSpendingCategory } from "../constants/categories";
+import { startOfUTCMonth, endOfUTCMonth } from "../utils/monthWindow";
 
 export async function syncAndProcessTransactions(
   userId: string,
@@ -114,17 +115,11 @@ async function applyRulesToTransactions(
   // Load all user rules
   const rules = await Rule.find({ ownerUserId: new Types.ObjectId(userId) });
 
-  // Calculate current month spend per category
+  // Calculate current month spend per category. UTC-anchored to match how
+  // bookedAt is stored -- see utils/monthWindow.ts.
   const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = new Date(
-    now.getFullYear(),
-    now.getMonth() + 1,
-    0,
-    23,
-    59,
-    59
-  );
+  const startOfMonth = startOfUTCMonth(now);
+  const endOfMonth = endOfUTCMonth(now);
 
   const existingTransactions = await Transaction.find({
     ownerUserId: new Types.ObjectId(userId),

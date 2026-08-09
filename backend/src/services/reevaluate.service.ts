@@ -1,5 +1,6 @@
 import { evaluateTransaction, BudgetSnapshot, RuleInput } from "../utils/evaluateRules";
 import { DEFAULT_CATEGORY, isSpendingCategory } from "../constants/categories";
+import { monthKey } from "../utils/monthWindow";
 
 export interface ReevaluateTransactionInput {
   id: string;
@@ -18,10 +19,6 @@ export interface ReevaluateResult {
   isOverBudget: boolean;
   approvalRequired: boolean;
   approvalStatus: "NEUTRAL" | "PENDING" | "APPROVED" | "DENIED" | "VIOLATION";
-}
-
-function monthKey(date: Date): string {
-  return `${date.getFullYear()}-${date.getMonth()}`;
 }
 
 /**

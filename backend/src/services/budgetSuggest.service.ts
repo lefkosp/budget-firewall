@@ -1,4 +1,5 @@
 import { SPENDING_CATEGORIES, isSpendingCategory } from "../constants/categories";
+import { monthKey, addUTCMonths, startOfUTCMonth } from "../utils/monthWindow";
 
 export interface BudgetSuggestionInput {
   computedCategory: string;
@@ -52,23 +53,20 @@ function percentile(sorted: number[], p: number): number {
   return sorted[lower] + weight * (sorted[upper] - sorted[lower]);
 }
 
-function monthKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
 /**
  * Builds the list of full, completed calendar months to analyze: up to the
  * 6 most recent completed months, clipped to not extend before the
  * account's earliest transaction (there's no such thing as a legitimate
- * "€0 month" before the account had any data at all).
+ * "€0 month" before the account had any data at all). All UTC -- see
+ * utils/monthWindow.ts for why.
  */
 function buildAnalysisWindow(earliestTx: Date, now: Date): Date[] {
-  const lastFullMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const earliestTxMonth = new Date(earliestTx.getFullYear(), earliestTx.getMonth(), 1);
+  const lastFullMonth = addUTCMonths(now, -1);
+  const earliestTxMonth = startOfUTCMonth(earliestTx);
 
   const months: Date[] = [];
   for (let i = 0; i < 6; i++) {
-    const month = new Date(lastFullMonth.getFullYear(), lastFullMonth.getMonth() - i, 1);
+    const month = addUTCMonths(lastFullMonth, -i);
     if (month < earliestTxMonth) break;
     months.push(month);
   }
