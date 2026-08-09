@@ -12,7 +12,7 @@ import {
   Legend,
 } from "recharts";
 import { ChartCard } from "@/components/app/ChartCard";
-import { FeeStats } from "@/lib/analytics/calculate";
+import { FeeStats } from "@/lib/analytics/types";
 
 interface FeeChartProps {
   feeStats: FeeStats;

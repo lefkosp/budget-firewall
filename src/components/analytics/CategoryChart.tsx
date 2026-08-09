@@ -13,7 +13,7 @@ import {
   Legend,
 } from "recharts";
 import { ChartCard } from "@/components/app/ChartCard";
-import { CategoryStats } from "@/lib/analytics/calculate";
+import { CategoryStats } from "@/lib/analytics/types";
 import { getCategoryColor, OTHER_COLOR } from "@/lib/chartColors";
 
 interface CategoryChartProps {

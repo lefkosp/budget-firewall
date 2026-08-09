@@ -10,7 +10,7 @@ import {
   Legend,
 } from "recharts";
 import { ChartCard } from "@/components/app/ChartCard";
-import { BalanceStats } from "@/lib/analytics/calculate";
+import { BalanceStats } from "@/lib/analytics/types";
 
 interface BalanceChartProps {
   balanceStats: BalanceStats;

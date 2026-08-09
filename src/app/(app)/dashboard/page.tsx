@@ -13,19 +13,8 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { StatCard } from "@/components/app/StatCard";
 import { FlagChips } from "@/components/app/FlagChips";
 import { formatCurrency } from "@/lib/format";
-import { onlySpending } from "@/lib/categories";
 import Link from "next/link";
-import {
-  calculateTransactionTypeStats,
-  calculateProductStats,
-  calculateTimeStats,
-  calculateFeeStats,
-  calculateBalanceStats,
-  calculateCurrencyStats,
-  calculateCategoryStats,
-  calculateMerchantStats,
-  calculateStateStats,
-} from "@/lib/analytics/calculate";
+import type { AnalyticsBundle } from "@/lib/analytics/types";
 import { TransactionTypePieChart, TransactionTypeBarChart } from "@/components/analytics/TransactionTypeChart";
 import { ProductDonutChart, ProductComparisonChart } from "@/components/analytics/ProductChart";
 import { DailySpendingChart, WeeklySpendingChart, MonthlySpendingChart } from "@/components/analytics/SpendingTrendChart";
@@ -34,40 +23,44 @@ import { CategoryBarChart, CategoryPieChart } from "@/components/analytics/Categ
 import { TopMerchantsBySpendChart, TopMerchantsByFrequencyChart } from "@/components/analytics/MerchantChart";
 import { FeeTrendsChart, FeesByTypeChart } from "@/components/analytics/FeeChart";
 
-interface Transaction {
+/** A row in the dashboard's "needs attention" lists, as returned by /api/stats/dashboard. */
+interface AttentionTransaction {
   id: string;
   bookedAt: string;
   amount: number;
   currency: string;
-  rawDescription: string;
   merchantNameNormalized: string;
-  computedCategory: string;
-  transactionType?: string;
-  product?: string;
-  startedDate?: string;
-  balance?: number;
   isGambling: boolean;
   isCrypto: boolean;
   isBlacklisted: boolean;
-  approvalStatus: string;
+  isRepeatViolation?: boolean;
+}
+
+interface DashboardStats {
+  kpis: {
+    totalSpend: number;
+    violations: number;
+    violationsSpend: number;
+    pendingApprovals: number;
+    gamblingCount: number;
+    cryptoCount: number;
+    totalTransactions: number;
+  };
+  pendingTransactions: AttentionTransaction[];
+  violationTransactions: AttentionTransaction[];
 }
 
 export default function DashboardPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [kpis, setKpis] = useState({
-    totalSpend: 0,
-    violations: 0,
-    violationsSpend: 0,
-    pendingApprovals: 0,
-    gamblingCount: 0,
-    cryptoCount: 0,
-  });
+  const [dashboard, setDashboard] = useState<DashboardStats | null>(null);
+  const [analytics, setAnalytics] = useState<AnalyticsBundle | null>(null);
   const [subscriptionsSummary, setSubscriptionsSummary] = useState<{
     totalMonthlyCost: number;
     count: number;
   } | null>(null);
-  const [budgets, setBudgets] = useState<{ name: string; monthlyLimit: number }[]>([]);
+  const [budgets, setBudgets] = useState<
+    { name: string; monthlyLimit: number; spentThisMonth: number }[]
+  >([]);
 
   useEffect(() => {
     async function fetchSubscriptions() {
@@ -86,9 +79,10 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchBudgets() {
       try {
-        const result = await api.get<{ name: string; monthlyLimit: number }[]>(
-          "/api/budgets"
-        );
+        const result =
+          await api.get<{ name: string; monthlyLimit: number; spentThisMonth: number }[]>(
+            "/api/budgets"
+          );
         setBudgets(result);
       } catch (error) {
         console.error("Error fetching budgets:", error);
@@ -97,143 +91,41 @@ export default function DashboardPage() {
     fetchBudgets();
   }, []);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        // Fetch all transactions (use a high limit to get all)
-        const response = await api.get<{
-          data: Transaction[];
-          pagination: any;
-        }>("/api/transactions?limit=10000");
-        const transactions = response.data || [];
-        setTransactions(transactions);
-
-        // Calculate KPIs from all transactions. Total Spend counts only
-        // spending categories -- income and transfers move money but aren't
-        // spending, and including them made this number meaningless.
-        const totalSpend = onlySpending(transactions).reduce(
-          (sum: number, tx: Transaction) => sum + Math.abs(tx.amount),
-          0
-        );
-        const violationTransactions = transactions.filter(
-          (tx: Transaction) => tx.approvalStatus === "VIOLATION"
-        );
-        const violations = violationTransactions.length;
-        const violationsSpend = violationTransactions.reduce(
-          (sum: number, tx: Transaction) => sum + Math.abs(tx.amount),
-          0
-        );
-        const pendingApprovals = transactions.filter(
-          (tx: Transaction) => tx.approvalStatus === "PENDING"
-        ).length;
-        const gamblingCount = transactions.filter(
-          (tx: Transaction) => tx.isGambling
-        ).length;
-        const cryptoCount = transactions.filter(
-          (tx: Transaction) => tx.isCrypto
-        ).length;
-
-        setKpis({
-          totalSpend,
-          violations,
-          violationsSpend,
-          pendingApprovals,
-          gamblingCount,
-          cryptoCount,
-        });
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-      } finally {
-        setLoading(false);
-      }
+  const fetchStats = useCallback(async () => {
+    try {
+      const [dashboardStats, analyticsStats] = await Promise.all([
+        api.get<DashboardStats>("/api/stats/dashboard"),
+        api.get<AnalyticsBundle>("/api/stats/analytics"),
+      ]);
+      setDashboard(dashboardStats);
+      setAnalytics(analyticsStats);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setLoading(false);
     }
-
-    fetchData();
   }, []);
 
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
   const handleDecision = useCallback(
-    async (tx: Transaction, decision: "approve" | "deny") => {
+    async (tx: AttentionTransaction, decision: "approve" | "deny") => {
       try {
-        const result = await api.post<{ transaction: { approvalStatus: string } }>(
-          `/api/transactions/${tx.id}/${decision}`,
-          {}
-        );
-        setTransactions((prev) =>
-          prev.map((t) =>
-            t.id === tx.id ? { ...t, approvalStatus: result.transaction.approvalStatus } : t
-          )
-        );
+        await api.post(`/api/transactions/${tx.id}/${decision}`, {});
         toast.success(decision === "approve" ? "Transaction approved" : "Transaction denied");
+        // Deciding a transaction moves it out of its list and changes the
+        // KPI counts, so re-read the stats rather than patching them locally.
+        fetchStats();
       } catch (err: any) {
         toast.error(err.message || `Failed to ${decision} transaction`);
       }
     },
-    []
+    [fetchStats]
   );
 
-  const pendingTransactions = transactions
-    .filter((tx) => tx.approvalStatus === "PENDING")
-    .sort(
-      (a, b) => new Date(b.bookedAt).getTime() - new Date(a.bookedAt).getTime()
-    )
-    .slice(0, 5);
-
-  const violationTransactions = transactions
-    .filter((tx) => tx.approvalStatus === "VIOLATION")
-    .sort(
-      (a, b) => new Date(b.bookedAt).getTime() - new Date(a.bookedAt).getTime()
-    )
-    .slice(0, 5);
-
-  // Best-effort: counted from currently loaded transactions, not full history.
-  const violationCounts = new Map<string, number>();
-  for (const tx of transactions) {
-    if (tx.approvalStatus === "VIOLATION") {
-      violationCounts.set(
-        tx.merchantNameNormalized,
-        (violationCounts.get(tx.merchantNameNormalized) ?? 0) + 1
-      );
-    }
-  }
-
-  const formatAmount = formatCurrency;
-
-  // Calculate all analytics
-  const transactionTypeStats = calculateTransactionTypeStats(transactions);
-  const productStats = calculateProductStats(transactions);
-  const timeStats = calculateTimeStats(transactions);
-  const feeStats = calculateFeeStats(transactions);
-  const balanceStats = calculateBalanceStats(transactions);
-  const currencyStats = calculateCurrencyStats(transactions);
-  const categoryStats = calculateCategoryStats(transactions);
-  const merchantStats = calculateMerchantStats(transactions);
-  const stateStats = calculateStateStats(transactions);
-
-  // Get most common transaction type
-  const mostCommonType = transactionTypeStats[0]?.type || "N/A";
-  const totalByType = transactionTypeStats.reduce((sum, item) => sum + item.count, 0);
-
-  // Budget status for the current calendar month, from the same
-  // already-fetched transactions -- no separate month-scoped fetch needed.
-  const now = new Date();
-  const spendThisMonthByCategory: Record<string, number> = {};
-  for (const tx of onlySpending(transactions)) {
-    const d = new Date(tx.bookedAt);
-    if (d.getFullYear() !== now.getFullYear() || d.getMonth() !== now.getMonth()) continue;
-    spendThisMonthByCategory[tx.computedCategory] =
-      (spendThisMonthByCategory[tx.computedCategory] || 0) + Math.abs(tx.amount);
-  }
-  const budgetedCategories = budgets.filter((b) => b.monthlyLimit > 0);
-  const totalBudgeted = budgetedCategories.reduce((sum, b) => sum + b.monthlyLimit, 0);
-  const totalSpentAgainstBudget = budgetedCategories.reduce(
-    (sum, b) => sum + (spendThisMonthByCategory[b.name] || 0),
-    0
-  );
-  const overBudgetCount = budgetedCategories.filter(
-    (b) => (spendThisMonthByCategory[b.name] || 0) > b.monthlyLimit
-  ).length;
-
-  if (loading) {
+  if (loading || !dashboard || !analytics) {
     return (
       <div className="h-full flex flex-col p-8 overflow-hidden">
         <div className="flex-shrink-0 mb-6 space-y-2">
@@ -259,6 +151,38 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+
+  const { kpis, pendingTransactions, violationTransactions } = dashboard;
+  const {
+    transactionTypeStats,
+    productStats,
+    timeStats,
+    feeStats,
+    balanceStats,
+    currencyStats,
+    categoryStats,
+    merchantStats,
+    stateStats,
+  } = analytics;
+
+  const formatAmount = formatCurrency;
+
+  // Get most common transaction type
+  const mostCommonType = transactionTypeStats[0]?.type || "N/A";
+  const totalByType = transactionTypeStats.reduce((sum, item) => sum + item.count, 0);
+
+  // Budget status for the current calendar month. spentThisMonth is computed
+  // server-side (UTC-anchored) and arrives with each budget row.
+  const budgetedCategories = budgets.filter((b) => b.monthlyLimit > 0);
+  const totalBudgeted = budgetedCategories.reduce((sum, b) => sum + b.monthlyLimit, 0);
+  const totalSpentAgainstBudget = budgetedCategories.reduce(
+    (sum, b) => sum + b.spentThisMonth,
+    0
+  );
+  const overBudgetCount = budgetedCategories.filter(
+    (b) => b.spentThisMonth > b.monthlyLimit
+  ).length;
 
   return (
     <div className="h-full flex flex-col p-8 overflow-hidden">
@@ -439,7 +363,7 @@ export default function DashboardPage() {
         )}
 
         {/* Time-Based Analytics */}
-        {transactions.length > 0 && (
+        {kpis.totalTransactions > 0 && (
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold mb-4">Time Analysis</h2>
@@ -762,10 +686,7 @@ export default function DashboardPage() {
                       />
                     </div>
                     <div className="flex items-center gap-2">
-                      <StatusBadge
-                        status="VIOLATION"
-                        repeat={(violationCounts.get(tx.merchantNameNormalized) ?? 0) >= 2}
-                      />
+                      <StatusBadge status="VIOLATION" repeat={tx.isRepeatViolation} />
                       <Button
                         size="icon-sm"
                         className="bg-success hover:bg-success/90 text-success-foreground"
@@ -800,7 +721,7 @@ export default function DashboardPage() {
           </Card>
         )}
 
-        {transactions.length === 0 && (
+        {kpis.totalTransactions === 0 && (
           <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
             <CardContent className="py-12 text-center">
               <p className="text-muted-foreground mb-6 text-lg">

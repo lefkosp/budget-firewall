@@ -10,7 +10,7 @@ import {
   Legend,
 } from "recharts";
 import { ChartCard } from "@/components/app/ChartCard";
-import { MerchantStats } from "@/lib/analytics/calculate";
+import { MerchantStats } from "@/lib/analytics/types";
 
 interface MerchantChartProps {
   data: MerchantStats[];

@@ -2,7 +2,7 @@
 
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { ChartCard } from "@/components/app/ChartCard";
-import { TransactionTypeStats } from "@/lib/analytics/calculate";
+import { TransactionTypeStats } from "@/lib/analytics/types";
 import { CHART_COLORS } from "@/lib/chartColors";
 
 interface TransactionTypeChartProps {

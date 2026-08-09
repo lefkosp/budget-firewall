@@ -13,7 +13,7 @@ import {
   Legend,
 } from "recharts";
 import { ChartCard } from "@/components/app/ChartCard";
-import { ProductStats } from "@/lib/analytics/calculate";
+import { ProductStats } from "@/lib/analytics/types";
 import { CHART_COLORS } from "@/lib/chartColors";
 
 interface ProductChartProps {

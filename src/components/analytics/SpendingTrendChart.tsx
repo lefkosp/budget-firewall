@@ -12,7 +12,7 @@ import {
   Legend,
 } from "recharts";
 import { ChartCard } from "@/components/app/ChartCard";
-import { TimeStats } from "@/lib/analytics/calculate";
+import { TimeStats } from "@/lib/analytics/types";
 
 interface SpendingTrendChartProps {
   timeStats: TimeStats;

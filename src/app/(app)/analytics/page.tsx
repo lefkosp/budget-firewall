@@ -6,17 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { formatCurrency } from "@/lib/format";
-import {
-  calculateTransactionTypeStats,
-  calculateProductStats,
-  calculateTimeStats,
-  calculateFeeStats,
-  calculateBalanceStats,
-  calculateCurrencyStats,
-  calculateCategoryStats,
-  calculateMerchantStats,
-  calculateStateStats,
-} from "@/lib/analytics/calculate";
+import type { AnalyticsBundle } from "@/lib/analytics/types";
 import { TransactionTypePieChart, TransactionTypeBarChart } from "@/components/analytics/TransactionTypeChart";
 import { ProductDonutChart, ProductComparisonChart } from "@/components/analytics/ProductChart";
 import { DailySpendingChart, WeeklySpendingChart, MonthlySpendingChart } from "@/components/analytics/SpendingTrendChart";
@@ -25,37 +15,14 @@ import { CategoryBarChart, CategoryPieChart } from "@/components/analytics/Categ
 import { TopMerchantsBySpendChart, TopMerchantsByFrequencyChart } from "@/components/analytics/MerchantChart";
 import { FeeTrendsChart, FeesByTypeChart } from "@/components/analytics/FeeChart";
 
-interface Transaction {
-  id: string;
-  bookedAt: string;
-  amount: number;
-  currency: string;
-  rawDescription: string;
-  merchantNameNormalized: string;
-  computedCategory: string;
-  transactionType?: string;
-  product?: string;
-  startedDate?: string;
-  balance?: number;
-  isGambling: boolean;
-  isCrypto: boolean;
-  isBlacklisted: boolean;
-  approvalStatus: string;
-}
-
 export default function AnalyticsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [stats, setStats] = useState<AnalyticsBundle | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const response = await api.get<{
-          data: Transaction[];
-          pagination: any;
-        }>("/api/transactions?limit=10000");
-        const transactions = response.data || [];
-        setTransactions(transactions);
+        setStats(await api.get<AnalyticsBundle>("/api/stats/analytics"));
       } catch (error) {
         console.error("Error fetching analytics data:", error);
       } finally {
@@ -90,7 +57,7 @@ export default function AnalyticsPage() {
     );
   }
 
-  if (transactions.length === 0) {
+  if (!stats || stats.totalTransactions === 0) {
     return (
       <div className="h-full flex flex-col p-8 overflow-hidden">
         <PageHeader
@@ -102,16 +69,15 @@ export default function AnalyticsPage() {
     );
   }
 
-  // Calculate all analytics
-  const transactionTypeStats = calculateTransactionTypeStats(transactions);
-  const productStats = calculateProductStats(transactions);
-  const timeStats = calculateTimeStats(transactions);
-  const feeStats = calculateFeeStats(transactions);
-  const balanceStats = calculateBalanceStats(transactions);
-  const currencyStats = calculateCurrencyStats(transactions);
-  const categoryStats = calculateCategoryStats(transactions);
-  const merchantStats = calculateMerchantStats(transactions);
-  const stateStats = calculateStateStats(transactions);
+  const {
+    transactionTypeStats,
+    productStats,
+    timeStats,
+    feeStats,
+    balanceStats,
+    categoryStats,
+    merchantStats,
+  } = stats;
 
   return (
     <div className="h-full flex flex-col p-8 overflow-hidden">
