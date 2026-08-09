@@ -35,6 +35,15 @@ describe("normalizeMerchant", () => {
     expect(normalizeMerchant("TFL TRAVEL CH 4429")).toBe("tfl travel ch");
   });
 
+  it("strips trailing #-prefixed store numbers, even short ones", () => {
+    // Real example from bank-data-parsing writeups: a "#" is an unambiguous
+    // store-number marker regardless of digit count, unlike a bare trailing
+    // number (which needs 3+ digits to be treated as noise).
+    expect(normalizeMerchant("SAPPS #06")).toBe("sapps");
+    expect(normalizeMerchant("TARGET #5521")).toBe("target");
+    expect(normalizeMerchant("WALGREENS #12")).toBe("walgreens");
+  });
+
   it("removes asterisk reference codes from other providers", () => {
     expect(normalizeMerchant("SQ *COFFEE SHOP")).toBe("coffee shop");
     expect(normalizeMerchant("SUMUP *BAKERY")).toBe("bakery");

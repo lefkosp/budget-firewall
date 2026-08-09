@@ -72,7 +72,12 @@ export function normalizeMerchant(rawDescription: string): string {
   // Reference codes after an asterisk: "merchant*2K4XY8901".
   normalized = normalized.replace(/\s*\*\s*\S+$/, "");
 
-  // Trailing store/reference numbers: "uber eats 8829301".
+  // Trailing store/reference numbers, "#"-prefixed ones ("SAPPS #06") are
+  // unambiguous regardless of length -- the "#" itself signals "this is a
+  // store number," so even a 2-digit one is safe to strip. Bare digits with
+  // no marker need 3+ ("uber eats 8829301") since a short bare number is
+  // more likely to be part of the merchant name than a store code.
+  normalized = normalized.replace(/\s+#\s?\d+$/, "");
   normalized = normalized.replace(/\s+\d{3,}$/, "");
 
   // Legal-entity suffixes that add nothing for matching.
