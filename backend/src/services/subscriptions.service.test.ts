@@ -110,7 +110,7 @@ describe("detectSubscriptions", () => {
     expect(result).toHaveLength(0);
   });
 
-  it("requires at least two occurrences", () => {
+  it("requires at least one occurrence to even consider a merchant", () => {
     const result = detectSubscriptions([tx("netflix", -1599, "2026-03-15")], NOW);
     expect(result).toHaveLength(0);
   });
@@ -127,13 +127,48 @@ describe("detectSubscriptions", () => {
     expect(result).toHaveLength(0);
   });
 
-  it("still detects with the minimum two occurrences, using the single gap for cadence", () => {
+  it("rejects two occurrences even with a matching cadence gap and identical amounts", () => {
+    // Two same-amount, cadence-matching charges are exactly what you'd see
+    // from either a genuine new subscription OR two unrelated one-off
+    // purchases that happened to land ~30 days apart -- with only one gap
+    // and no second historical amount to check consistency against, there's
+    // no way to tell them apart. Industry practice (Plaid, Ramp) requires
+    // 3+ occurrences before treating a merchant as a confirmed recurring
+    // series; 1-2 occurrences is "early detection" at best, not confirmed.
     const result = detectSubscriptions(
       [tx("netflix", -1599, "2026-02-14"), tx("netflix", -1599, "2026-03-16")],
       NOW
     );
+    expect(result).toHaveLength(0);
+  });
+
+  it("rejects two occurrences with wildly different amounts (the false-positive this minimum exists to prevent)", () => {
+    // A merchant charged once, then again a week later for a totally
+    // different amount -- two unrelated one-off charges, not a weekly
+    // subscription. With MIN_OCCURRENCES lowered to 2 this used to slip
+    // through: a single historical amount has nothing to check consistency
+    // against, so any two same-merchant charges with a cadence-matching gap
+    // would "detect" regardless of whether the amounts had anything in
+    // common.
+    const result = detectSubscriptions(
+      [tx("mercuryo", -40000, "2026-03-07"), tx("mercuryo", -5000, "2026-03-14")],
+      NOW
+    );
+    expect(result).toHaveLength(0);
+  });
+
+  it("detects at exactly the new minimum of three occurrences", () => {
+    const result = detectSubscriptions(
+      [
+        tx("netflix", -1599, "2026-02-15"),
+        tx("netflix", -1599, "2026-03-15"),
+        tx("netflix", -1599, "2026-04-14"),
+      ],
+      NOW
+    );
     expect(result).toHaveLength(1);
     expect(result[0].cadence).toBe("monthly");
+    expect(result[0].occurrences).toBe(3);
   });
 
   it("rejects gaps that don't fit any cadence band", () => {

@@ -52,7 +52,20 @@ const CADENCE_BANDS: Record<SubscriptionCadence, CadenceBand> = {
 
 /** Amounts within this fraction of each other count as "the same price". */
 const AMOUNT_TOLERANCE = 0.08;
-const MIN_OCCURRENCES = 2;
+
+/**
+ * Matches industry practice (Plaid's recurring-transactions API requires 3+
+ * occurrences for a "mature" stream, flagging 1-2 as lower-confidence
+ * "early detection" instead; Ramp's own recurring-detection spec uses the
+ * same 3-occurrence floor). Below 3, there's no way to validate amount
+ * consistency: 2 occurrences give exactly 1 historical amount, which is
+ * trivially "consistent" with itself no matter how different the two
+ * charges actually are -- a real false positive we hit in practice (two
+ * unrelated charges at the same merchant, a week apart, for wildly
+ * different amounts, detected as a "subscription" under the old minimum
+ * of 2).
+ */
+const MIN_OCCURRENCES = 3;
 
 function median(nums: number[]): number {
   const sorted = [...nums].sort((a, b) => a - b);
