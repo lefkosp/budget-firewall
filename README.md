@@ -40,7 +40,20 @@ npm install
 npm run dev
 ```
 
-Environment variables for open banking and auth are required. See `.env.example` when added.
+Environment variables for open banking and auth are required. See
+`backend/.env.example`.
+
+## Background sync
+
+`POST /api/cron/sync-all` re-syncs every linked bank connection from its
+last-synced cursor. It's not an in-process scheduler -- this deploys as a
+normal web dyno, not an always-on worker -- so it's meant to be triggered by
+the hosting platform's scheduled-task product (Railway Cron / Render Cron
+Jobs) or a GitHub Actions `schedule:` job, roughly every 6h:
+
+```bash
+curl -X POST -H "X-Cron-Secret: $CRON_SECRET" https://<backend-host>/api/cron/sync-all
+```
 
 ## License
 
