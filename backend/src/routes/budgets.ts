@@ -5,6 +5,7 @@ import { AuthRequest } from "../types";
 import { Transaction } from "../models/Transaction";
 import { BudgetCategory } from "../models/BudgetCategory";
 import { SPENDING_CATEGORIES } from "../constants/categories";
+import { startOfUTCMonth, endOfUTCMonth } from "../utils/monthWindow";
 import { detectSubscriptions, monthlyCost } from "../services/subscriptions.service";
 import { suggestBudgets, applySubscriptionsOverride } from "../services/budgetSuggest.service";
 
@@ -32,18 +33,53 @@ async function ensureCurrentCategories(ownerUserId: Types.ObjectId): Promise<voi
   );
 }
 
+/**
+ * This calendar month's spend per category, computed in the database rather
+ * than by shipping every transaction to the browser to be summed there.
+ *
+ * Month bounds are UTC (see utils/monthWindow.ts) to match how bookedAt is
+ * stored -- the client-side version this replaces used browser-local
+ * getMonth(), which put boundary transactions in the wrong month for anyone
+ * in a timezone behind UTC.
+ *
+ * Only money out counts, matching budgetSuggest.service -- "spent" and the
+ * suggestion derived from it should never disagree about what spending is.
+ */
+async function spendThisMonthByCategory(
+  ownerUserId: Types.ObjectId,
+  now: Date = new Date()
+): Promise<Record<string, number>> {
+  const rows = await Transaction.aggregate<{ _id: string; spent: number }>([
+    {
+      $match: {
+        ownerUserId,
+        bookedAt: { $gte: startOfUTCMonth(now), $lte: endOfUTCMonth(now) },
+        amount: { $lt: 0 },
+        computedCategory: { $in: SPENDING_CATEGORIES },
+      },
+    },
+    { $group: { _id: "$computedCategory", spent: { $sum: { $abs: "$amount" } } } },
+  ]);
+
+  return Object.fromEntries(rows.map((r) => [r._id, r.spent]));
+}
+
 async function currentBudgets(ownerUserId: Types.ObjectId) {
-  const budgets = await BudgetCategory.find({
-    ownerUserId,
-    name: { $in: SPENDING_CATEGORIES },
-  })
-    .sort({ name: 1 })
-    .lean();
+  const [budgets, spendByCategory] = await Promise.all([
+    BudgetCategory.find({
+      ownerUserId,
+      name: { $in: SPENDING_CATEGORIES },
+    })
+      .sort({ name: 1 })
+      .lean(),
+    spendThisMonthByCategory(ownerUserId),
+  ]);
 
   return budgets.map((b) => ({
     id: b._id.toString(),
     name: b.name,
     monthlyLimit: b.monthlyLimit,
+    spentThisMonth: spendByCategory[b.name] ?? 0,
   }));
 }
 

@@ -15,12 +15,13 @@ import { StatCard } from "@/components/app/StatCard";
 import { EmptyState } from "@/components/app/EmptyState";
 import { Money } from "@/components/app/Money";
 import { BudgetProgressBar } from "@/components/app/BudgetProgressBar";
-import { EDITABLE_CATEGORIES, onlySpending } from "@/lib/categories";
+import { EDITABLE_CATEGORIES } from "@/lib/categories";
 
 interface Budget {
   id: string;
   name: string;
   monthlyLimit: number; // cents
+  spentThisMonth: number; // cents, computed server-side
 }
 
 interface Suggestion {
@@ -34,12 +35,6 @@ interface Suggestion {
   rationale: string;
 }
 
-interface Transaction {
-  bookedAt: string;
-  amount: number;
-  computedCategory: string;
-}
-
 const CATEGORY_ORDER = new Map<string, number>(
   EDITABLE_CATEGORIES.map((c, i) => [c, i])
 );
@@ -47,7 +42,6 @@ const CATEGORY_ORDER = new Map<string, number>(
 export default function BudgetsPage() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [spendThisMonth, setSpendThisMonth] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -56,10 +50,9 @@ export default function BudgetsPage() {
   const fetchAll = useCallback(async () => {
     try {
       setLoading(true);
-      const [budgetsRes, suggestionsRes, transactionsRes] = await Promise.all([
+      const [budgetsRes, suggestionsRes] = await Promise.all([
         api.get<Budget[]>("/api/budgets"),
         api.get<{ suggestions: Suggestion[] }>("/api/budgets/suggestions"),
-        api.get<{ data: Transaction[] }>("/api/transactions?limit=10000"),
       ]);
 
       setBudgets(budgetsRes);
@@ -67,17 +60,6 @@ export default function BudgetsPage() {
       setDrafts(
         Object.fromEntries(budgetsRes.map((b) => [b.id, (b.monthlyLimit / 100).toString()]))
       );
-
-      const now = new Date();
-      const thisMonth = onlySpending(transactionsRes.data).filter((tx) => {
-        const d = new Date(tx.bookedAt);
-        return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-      });
-      const spend: Record<string, number> = {};
-      for (const tx of thisMonth) {
-        spend[tx.computedCategory] = (spend[tx.computedCategory] || 0) + Math.abs(tx.amount);
-      }
-      setSpendThisMonth(spend);
     } catch (error) {
       console.error("Error fetching budgets:", error);
     } finally {
@@ -144,9 +126,9 @@ export default function BudgetsPage() {
   }
 
   const totalBudgeted = budgets.reduce((sum, b) => sum + b.monthlyLimit, 0);
-  const totalSpent = Object.values(spendThisMonth).reduce((sum, v) => sum + v, 0);
+  const totalSpent = budgets.reduce((sum, b) => sum + b.spentThisMonth, 0);
   const overBudgetCount = budgets.filter(
-    (b) => b.monthlyLimit > 0 && (spendThisMonth[b.name] || 0) > b.monthlyLimit
+    (b) => b.monthlyLimit > 0 && b.spentThisMonth > b.monthlyLimit
   ).length;
 
   const anyUnacceptedSuggestion = budgets.some((b) => {
@@ -221,7 +203,7 @@ export default function BudgetsPage() {
               <div className="divide-y divide-border/50">
                 {sortedBudgets.map((budget) => {
                   const suggestion = suggestionByCategory.get(budget.name);
-                  const spent = spendThisMonth[budget.name] || 0;
+                  const spent = budget.spentThisMonth;
                   const hasSuggestion =
                     suggestion && suggestion.suggested > 0 && suggestion.suggested !== budget.monthlyLimit;
 
