@@ -6,6 +6,7 @@ export interface TransactionInput {
   providerCategory?: string | null;
   computedCategory: string;
   amount: number;
+  currency: string;
 }
 
 export interface RuleInput {
@@ -116,10 +117,14 @@ export function evaluateTransaction(
     }
   }
 
-  // 5. Budget exceed check
-  const categoryBudget = isSpendingCategory(transaction.computedCategory)
-    ? budgetSnapshot.find((b) => b.category === transaction.computedCategory)
-    : undefined;
+  // 5. Budget exceed check. Budgets are declared in EUR (see EUR-only v1
+  // guard) -- a non-EUR transaction has no meaningful comparison against a
+  // EUR-denominated limit, so it's excluded rather than silently compared
+  // as if the amounts were the same currency.
+  const categoryBudget =
+    transaction.currency === "EUR" && isSpendingCategory(transaction.computedCategory)
+      ? budgetSnapshot.find((b) => b.category === transaction.computedCategory)
+      : undefined;
   if (categoryBudget && categoryBudget.limit > 0) {
     const absAmount = Math.abs(transaction.amount);
     const newSpent = categoryBudget.spent + absAmount;

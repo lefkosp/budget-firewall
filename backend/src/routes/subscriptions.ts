@@ -13,8 +13,11 @@ router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const ownerUserId = new Types.ObjectId(req.userId!);
 
+    // EUR-only v1: monthlyCost sums amounts, so detection runs on EUR spend
+    // only -- a merchant billing in two currencies would otherwise look like
+    // a price change every cycle.
     const [transactions, dismissals] = await Promise.all([
-      Transaction.find({ ownerUserId }).select(
+      Transaction.find({ ownerUserId, currency: "EUR" }).select(
         "merchantNameNormalized amount bookedAt computedCategory"
       ),
       SubscriptionDismissal.find({ ownerUserId }).select("merchantNameNormalized"),

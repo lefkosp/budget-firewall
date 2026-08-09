@@ -8,6 +8,7 @@ export interface ReevaluateTransactionInput {
   providerCategory?: string | null;
   computedCategory: string;
   amount: number; // cents
+  currency: string;
   bookedAt: string | Date;
 }
 
@@ -64,6 +65,7 @@ export function reevaluateTransactions(
           providerCategory: tx.providerCategory ?? null,
           computedCategory: tx.computedCategory,
           amount: tx.amount,
+          currency: tx.currency,
         },
         rules,
         budgetSnapshot
@@ -71,8 +73,10 @@ export function reevaluateTransactions(
 
       resultsById.set(tx.id, { id: tx.id, ...evaluation });
 
+      // Budgets are EUR-denominated -- a non-EUR charge doesn't accrue
+      // against them (see evaluateTransaction's budget check).
       const category = tx.computedCategory || DEFAULT_CATEGORY;
-      if (isSpendingCategory(category)) {
+      if (tx.currency === "EUR" && isSpendingCategory(category)) {
         const budget = budgetSnapshot.find((b) => b.category === category);
         if (budget) budget.spent += Math.abs(tx.amount);
       }

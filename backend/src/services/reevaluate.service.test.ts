@@ -7,13 +7,15 @@ function tx(
   merchant: string,
   category: string,
   amountCents: number,
-  date: string
+  date: string,
+  currency = "EUR"
 ): ReevaluateTransactionInput {
   return {
     id,
     merchantNameNormalized: merchant,
     computedCategory: category,
     amount: amountCents,
+    currency,
     bookedAt: date,
   };
 }
@@ -108,6 +110,19 @@ describe("reevaluateTransactions", () => {
     );
     expect(results[0].isGambling).toBe(false);
     expect(results[0].approvalStatus).toBe("NEUTRAL");
+  });
+
+  it("does not flag a non-EUR transaction against a EUR budget, nor let it inflate later EUR charges' accumulator", () => {
+    const results = reevaluateTransactions(
+      [
+        tx("1", "shop", "Shopping", -5000, "2026-06-05", "USD"),
+        tx("2", "shop", "Shopping", -2000, "2026-06-10"),
+      ],
+      [],
+      [{ category: "Shopping", limit: 3000 }]
+    );
+    expect(results[0].isOverBudget).toBe(false);
+    expect(results[1].isOverBudget).toBe(false);
   });
 
   it("returns one result per input transaction, in the input's original order", () => {

@@ -56,6 +56,7 @@ async function spendThisMonthByCategory(
         bookedAt: { $gte: startOfUTCMonth(now), $lte: endOfUTCMonth(now) },
         amount: { $lt: 0 },
         computedCategory: { $in: SPENDING_CATEGORIES },
+        currency: "EUR",
       },
     },
     { $group: { _id: "$computedCategory", spent: { $sum: { $abs: "$amount" } } } },
@@ -101,7 +102,9 @@ router.get("/suggestions", authenticateToken, async (req: AuthRequest, res: Resp
   try {
     const ownerUserId = new Types.ObjectId(req.userId!);
 
-    const transactions = await Transaction.find({ ownerUserId }).select(
+    // EUR-only v1: suggestions (and the recurring-subscription override
+    // merged into them below) are derived only from EUR spend.
+    const transactions = await Transaction.find({ ownerUserId, currency: "EUR" }).select(
       "merchantNameNormalized computedCategory amount bookedAt"
     );
 

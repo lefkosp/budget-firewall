@@ -154,7 +154,7 @@ router.post("/reevaluate", authenticateToken, async (req: AuthRequest, res: Resp
       Rule.find({ ownerUserId }).lean(),
       BudgetCategory.find({ ownerUserId }).lean(),
       Transaction.find({ ownerUserId }).select(
-        "merchantNameNormalized providerCategory computedCategory amount bookedAt"
+        "merchantNameNormalized providerCategory computedCategory amount currency bookedAt"
       ),
     ]);
 
@@ -165,6 +165,7 @@ router.post("/reevaluate", authenticateToken, async (req: AuthRequest, res: Resp
         providerCategory: tx.providerCategory,
         computedCategory: tx.computedCategory,
         amount: tx.amount,
+        currency: tx.currency,
         bookedAt: tx.bookedAt,
       })),
       rules.map((r) => ({ type: r.type, enabled: r.enabled, config: r.config })),

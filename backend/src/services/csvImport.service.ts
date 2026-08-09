@@ -9,6 +9,14 @@ export interface CSVImportResult {
   new: number;
   skipped: number;
   errors: string[];
+  /**
+   * Rows in a currency other than EUR. They're imported and stored (nothing
+   * is silently dropped), but excluded from every spend total, budget,
+   * subscription, and analytics aggregation -- see the EUR-only v1 guard in
+   * DEVELOPMENT_PLAN.md 6.5.3. Surfaced here so the import summary can warn
+   * about it instead of totals just quietly not adding up later.
+   */
+  nonEurCount: number;
 }
 
 /**
@@ -74,13 +82,15 @@ export async function importTransactionsFromCSV(
   );
 
   const skipped = parsedTransactions.length - newTransactions.length;
-  console.log(`[CSV Import Service] Import complete - New: ${newTransactions.length}, Skipped (duplicates): ${skipped}`);
+  const nonEurCount = parsedTransactions.filter((t) => t.currency !== "EUR").length;
+  console.log(`[CSV Import Service] Import complete - New: ${newTransactions.length}, Skipped (duplicates): ${skipped}, Non-EUR: ${nonEurCount}`);
 
   return {
     imported: parsedTransactions.length,
     new: newTransactions.length,
     skipped,
     errors: [],
+    nonEurCount,
   };
 }
 

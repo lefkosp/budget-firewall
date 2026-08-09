@@ -19,6 +19,7 @@ export default function ImportPage() {
     imported: number;
     new: number;
     skipped: number;
+    nonEurCount: number;
   } | null>(null);
   const [error, setError] = useState("");
 
@@ -239,6 +240,14 @@ export default function ImportPage() {
                 <div className="text-2xl font-bold text-secondary-foreground">{result.skipped}</div>
               </div>
             </div>
+            {result.nonEurCount > 0 && (
+              <div className="mt-4 p-4 text-sm text-yellow-600 dark:text-yellow-400 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                {result.nonEurCount} transaction{result.nonEurCount === 1 ? "" : "s"} in other
+                currencies {result.nonEurCount === 1 ? "was" : "were"} imported but{" "}
+                {result.nonEurCount === 1 ? "is" : "are"} excluded from totals, budgets, and
+                analytics (EUR only for now).
+              </div>
+            )}
             <div className="mt-6 flex gap-3">
               <Button
                 onClick={() => router.push("/transactions")}

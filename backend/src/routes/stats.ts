@@ -39,6 +39,10 @@ const EMPTY_KPIS: KpiRow = {
  */
 async function loadKpis(ownerUserId: Types.ObjectId): Promise<KpiRow> {
   const [row] = await Transaction.aggregate<KpiRow>([
+    // EUR-only v1: totalSpend/violationsSpend are money sums, so they're
+    // scoped to EUR. Counts (violations, pendingApprovals, gambling/crypto,
+    // totalTransactions) deliberately stay currency-agnostic -- a flagged
+    // transaction is still flagged regardless of what currency it's in.
     { $match: { ownerUserId } },
     {
       $group: {
@@ -46,7 +50,12 @@ async function loadKpis(ownerUserId: Types.ObjectId): Promise<KpiRow> {
         totalSpend: {
           $sum: {
             $cond: [
-              { $in: ["$computedCategory", NON_SPEND_CATEGORIES] },
+              {
+                $or: [
+                  { $in: ["$computedCategory", NON_SPEND_CATEGORIES] },
+                  { $ne: ["$currency", "EUR"] },
+                ],
+              },
               0,
               { $abs: "$amount" },
             ],
@@ -57,7 +66,11 @@ async function loadKpis(ownerUserId: Types.ObjectId): Promise<KpiRow> {
         },
         violationsSpend: {
           $sum: {
-            $cond: [{ $eq: ["$approvalStatus", "VIOLATION"] }, { $abs: "$amount" }, 0],
+            $cond: [
+              { $and: [{ $eq: ["$approvalStatus", "VIOLATION"] }, { $eq: ["$currency", "EUR"] }] },
+              { $abs: "$amount" },
+              0,
+            ],
           },
         },
         pendingApprovals: {
@@ -155,7 +168,9 @@ router.get("/analytics", authenticateToken, async (req: AuthRequest, res: Respon
   try {
     const ownerUserId = new Types.ObjectId(req.userId!);
 
-    const transactions = await Transaction.find({ ownerUserId })
+    // EUR-only v1: every chart here sums amount, so the dataset is scoped to
+    // EUR up front rather than filtering currency inside each calculation.
+    const transactions = await Transaction.find({ ownerUserId, currency: "EUR" })
       .select(
         "bookedAt amount currency rawDescription merchantNameNormalized computedCategory transactionType product startedDate balance"
       )

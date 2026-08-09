@@ -121,9 +121,12 @@ async function applyRulesToTransactions(
   const startOfMonth = startOfUTCMonth(now);
   const endOfMonth = endOfUTCMonth(now);
 
+  // EUR-only: budgets are declared in EUR, so a non-EUR baseline transaction
+  // would inflate the accumulator against a limit it was never measured in.
   const existingTransactions = await Transaction.find({
     ownerUserId: new Types.ObjectId(userId),
     bookedAt: { $gte: startOfMonth, $lte: endOfMonth },
+    currency: "EUR",
   }).select("computedCategory amount");
 
   // Calculate spent per category (excluding the new transactions we're about
@@ -172,6 +175,7 @@ async function applyRulesToTransactions(
         providerCategory: transaction.providerCategory || null,
         computedCategory: transaction.computedCategory,
         amount: transaction.amount,
+        currency: transaction.currency,
       },
       rules.map((r) => ({
         type: r.type,
@@ -191,11 +195,12 @@ async function applyRulesToTransactions(
       approvalStatus: evaluation.approvalStatus,
     });
 
-    // Update budget snapshot for next transaction
+    // Update budget snapshot for next transaction. EUR-only, per above.
     const category = transaction.computedCategory || DEFAULT_CATEGORY;
-    const budget = isSpendingCategory(category)
-      ? budgetSnapshot.find((b) => b.category === category)
-      : undefined;
+    const budget =
+      transaction.currency === "EUR" && isSpendingCategory(category)
+        ? budgetSnapshot.find((b) => b.category === category)
+        : undefined;
     if (budget) {
       budget.spent += Math.abs(transaction.amount);
     }
