@@ -107,6 +107,41 @@ describe("suggestBudgets", () => {
     expect(groceries.median).toBe(50000);
   });
 
+  it("flags a suggestion as low-confidence when fewer than 3 months are analyzed", () => {
+    // With only 1-2 months of data, the median has no real outlier
+    // protection left -- one weird month either *is* the estimate (n=1) or
+    // dominates it (n=2), so it shouldn't be presented with the same
+    // confidence as a 3+ month suggestion.
+    const oneMonth = suggestBudgets(
+      [tx("Groceries", 40000, "2026-07-10")],
+      NOW
+    );
+    const groceriesOneMonth = oneMonth.find((s) => s.category === "Groceries")!;
+    expect(groceriesOneMonth.monthsAnalyzed).toBe(1);
+    expect(groceriesOneMonth.lowConfidence).toBe(true);
+    expect(groceriesOneMonth.rationale).toMatch(/more reliable/i);
+
+    const twoMonths = suggestBudgets(
+      [tx("Groceries", 40000, "2026-06-10"), tx("Groceries", 60000, "2026-07-10")],
+      NOW
+    );
+    const groceriesTwoMonths = twoMonths.find((s) => s.category === "Groceries")!;
+    expect(groceriesTwoMonths.monthsAnalyzed).toBe(2);
+    expect(groceriesTwoMonths.lowConfidence).toBe(true);
+  });
+
+  it("does not flag low confidence once 3 or more months are analyzed", () => {
+    const transactions = [
+      tx("Groceries", 40000, "2026-05-10"),
+      tx("Groceries", 42000, "2026-06-10"),
+      tx("Groceries", 41000, "2026-07-10"),
+    ];
+    const suggestions = suggestBudgets(transactions, NOW);
+    const groceries = suggestions.find((s) => s.category === "Groceries")!;
+    expect(groceries.monthsAnalyzed).toBe(3);
+    expect(groceries.lowConfidence).toBe(false);
+  });
+
   it("returns no suggestions when there is no completed month of history", () => {
     const transactions = [tx("Groceries", 40000, "2026-08-05")]; // current month only
 
@@ -178,6 +213,11 @@ describe("applySubscriptionsOverride", () => {
 
     expect(subs.suggested).toBe(3298);
     expect(subs.rationale).toMatch(/recurring/i);
+    // Only 2 months of history feeds the underlying median (so it would
+    // normally be low-confidence), but the override replaces it with a
+    // direct read of actual recurring charges -- the "not enough months"
+    // caveat doesn't apply to that.
+    expect(subs.lowConfidence).toBe(false);
   });
 
   it("is a no-op on an empty suggestion list", () => {

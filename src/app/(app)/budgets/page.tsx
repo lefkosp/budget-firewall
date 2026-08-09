@@ -30,6 +30,7 @@ interface Suggestion {
   monthsAnalyzed: number;
   suggested: number;
   highVariance: boolean;
+  lowConfidence: boolean;
   rationale: string;
 }
 
@@ -248,10 +249,17 @@ export default function BudgetsPage() {
                               className={
                                 suggestion.highVariance
                                   ? "border-warning/50 text-warning bg-warning/10 flex-shrink-0"
-                                  : "border-border/50 text-muted-foreground flex-shrink-0"
+                                  : suggestion.lowConfidence
+                                    ? "border-dashed border-border/50 text-muted-foreground/70 flex-shrink-0"
+                                    : "border-border/50 text-muted-foreground flex-shrink-0"
                               }
                             >
                               Suggests <Money cents={suggestion.suggested} className="ml-1" />
+                              {suggestion.lowConfidence && (
+                                <span className="ml-1 text-[10px] uppercase tracking-wide">
+                                  limited data
+                                </span>
+                              )}
                             </Badge>
                           </TooltipTrigger>
                           <TooltipContent className="max-w-64">{suggestion.rationale}</TooltipContent>
