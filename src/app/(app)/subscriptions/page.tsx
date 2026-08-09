@@ -29,6 +29,7 @@ interface Subscription {
 
 interface SubscriptionsResponse {
   subscriptions: Subscription[];
+  possibleSubscriptions: Subscription[];
   totalMonthlyCost: number;
   count: number;
 }
@@ -60,6 +61,50 @@ function formatDate(iso: string) {
     month: "short",
     day: "numeric",
   });
+}
+
+function SubscriptionRow({
+  sub,
+  tentative,
+  onDismiss,
+}: {
+  sub: Subscription;
+  tentative: boolean;
+  onDismiss: (merchant: string) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 p-4">
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold capitalize">{sub.merchant}</div>
+        <div className="text-sm text-muted-foreground mt-1">
+          {CADENCE_LABEL[sub.cadence]} &middot;{" "}
+          {sub.status === "possibly-cancelled"
+            ? `Expected ${formatDate(sub.nextExpected)}`
+            : tentative
+              ? `2nd charge ${formatDate(sub.lastCharged)}`
+              : `Next charge ~${formatDate(sub.nextExpected)}`}
+        </div>
+      </div>
+      <Money cents={-sub.amount} currency="EUR" className="font-semibold" />
+      {tentative ? (
+        <Badge variant="outline" className="bg-primary/10 text-foreground border-primary/40">
+          Possible
+        </Badge>
+      ) : (
+        <Badge variant="outline" className={STATUS_CONFIG[sub.status].className}>
+          {STATUS_CONFIG[sub.status].label}
+        </Badge>
+      )}
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => onDismiss(sub.merchant)}
+        title="Not a subscription"
+      >
+        <X className="h-4 w-4" />
+      </Button>
+    </div>
+  );
 }
 
 export default function SubscriptionsPage() {
@@ -111,6 +156,7 @@ export default function SubscriptionsPage() {
   }
 
   const subscriptions = data?.subscriptions ?? [];
+  const possibleSubscriptions = data?.possibleSubscriptions ?? [];
 
   return (
     <div className="h-full flex flex-col p-8 overflow-hidden">
@@ -119,7 +165,7 @@ export default function SubscriptionsPage() {
         description="Recurring charges detected from your transaction history"
       />
 
-      {subscriptions.length === 0 ? (
+      {subscriptions.length === 0 && possibleSubscriptions.length === 0 ? (
         <EmptyState
           icon={Repeat}
           title="No subscriptions detected yet"
@@ -127,51 +173,58 @@ export default function SubscriptionsPage() {
         />
       ) : (
         <div className="flex-1 min-h-0 overflow-auto space-y-6 animate-in fade-in duration-300">
-          <div className="grid gap-6 md:grid-cols-2">
-            <StatCard
-              label="Monthly Recurring Cost"
-              value={<Money cents={data!.totalMonthlyCost} currency="EUR" />}
-            />
-            <StatCard label="Active Subscriptions" value={data!.count} />
-          </div>
-
-          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardContent className="p-0">
-              <div className="divide-y divide-border/50">
-                {subscriptions.map((sub) => (
-                  <div
-                    key={sub.merchant}
-                    className="flex items-center justify-between gap-4 p-4"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="font-semibold capitalize">{sub.merchant}</div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        {CADENCE_LABEL[sub.cadence]} &middot;{" "}
-                        {sub.status === "possibly-cancelled"
-                          ? `Expected ${formatDate(sub.nextExpected)}`
-                          : `Next charge ~${formatDate(sub.nextExpected)}`}
-                      </div>
-                    </div>
-                    <Money cents={-sub.amount} currency="EUR" className="font-semibold" />
-                    <Badge
-                      variant="outline"
-                      className={STATUS_CONFIG[sub.status].className}
-                    >
-                      {STATUS_CONFIG[sub.status].label}
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={() => handleDismiss(sub.merchant)}
-                      title="Not a subscription"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+          {subscriptions.length > 0 && (
+            <>
+              <div className="grid gap-6 md:grid-cols-2">
+                <StatCard
+                  label="Monthly Recurring Cost"
+                  value={<Money cents={data!.totalMonthlyCost} currency="EUR" />}
+                />
+                <StatCard label="Active Subscriptions" value={data!.count} />
               </div>
-            </CardContent>
-          </Card>
+
+              <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+                <CardContent className="p-0">
+                  <div className="divide-y divide-border/50">
+                    {subscriptions.map((sub) => (
+                      <SubscriptionRow
+                        key={sub.merchant}
+                        sub={sub}
+                        tentative={false}
+                        onDismiss={handleDismiss}
+                      />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {possibleSubscriptions.length > 0 && (
+            <div className="space-y-3">
+              <div>
+                <h2 className="text-lg font-semibold">Possible subscriptions</h2>
+                <p className="text-sm text-muted-foreground">
+                  Charged twice on a matching schedule for a matching amount, but not yet
+                  confirmed by a third charge. Not included in the monthly cost above.
+                </p>
+              </div>
+              <Card className="border-dashed border-border/50 bg-card/30 backdrop-blur-sm">
+                <CardContent className="p-0">
+                  <div className="divide-y divide-border/50">
+                    {possibleSubscriptions.map((sub) => (
+                      <SubscriptionRow
+                        key={sub.merchant}
+                        sub={sub}
+                        tentative={true}
+                        onDismiss={handleDismiss}
+                      />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       )}
     </div>

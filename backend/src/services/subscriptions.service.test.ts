@@ -23,13 +23,15 @@ describe("detectSubscriptions", () => {
       NOW
     );
 
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({
+    expect(result.mature).toHaveLength(1);
+    expect(result.earlyDetection).toHaveLength(0);
+    expect(result.mature[0]).toMatchObject({
       merchant: "netflix",
       amount: 1599,
       cadence: "monthly",
       status: "active",
       occurrences: 4,
+      tier: "mature",
     });
   });
 
@@ -44,9 +46,9 @@ describe("detectSubscriptions", () => {
       NOW
     );
 
-    expect(result).toHaveLength(1);
-    expect(result[0].cadence).toBe("weekly");
-    expect(result[0].status).toBe("active");
+    expect(result.mature).toHaveLength(1);
+    expect(result.mature[0].cadence).toBe("weekly");
+    expect(result.mature[0].status).toBe("active");
   });
 
   it("detects a yearly subscription", () => {
@@ -59,8 +61,8 @@ describe("detectSubscriptions", () => {
       NOW
     );
 
-    expect(result).toHaveLength(1);
-    expect(result[0].cadence).toBe("yearly");
+    expect(result.mature).toHaveLength(1);
+    expect(result.mature[0].cadence).toBe("yearly");
   });
 
   it("detects a subscription whose price changed once, permanently, deep in a long history", () => {
@@ -89,8 +91,8 @@ describe("detectSubscriptions", () => {
       new Date("2027-01-05T00:00:00Z")
     );
 
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({
+    expect(result.mature).toHaveLength(1);
+    expect(result.mature[0]).toMatchObject({
       merchant: "spotify",
       amount: 1499,
       cadence: "monthly",
@@ -110,9 +112,9 @@ describe("detectSubscriptions", () => {
       NOW
     );
 
-    expect(result).toHaveLength(1);
-    expect(result[0].status).toBe("price-changed");
-    expect(result[0].amount).toBe(1199); // reflects the current price
+    expect(result.mature).toHaveLength(1);
+    expect(result.mature[0].status).toBe("price-changed");
+    expect(result.mature[0].amount).toBe(1199); // reflects the current price
   });
 
   it("flags a subscription that stopped charging as possibly-cancelled", () => {
@@ -126,8 +128,8 @@ describe("detectSubscriptions", () => {
       NOW
     );
 
-    expect(result).toHaveLength(1);
-    expect(result[0].status).toBe("possibly-cancelled");
+    expect(result.mature).toHaveLength(1);
+    expect(result.mature[0].status).toBe("possibly-cancelled");
   });
 
   it("does not flag irregular one-off purchases at the same merchant", () => {
@@ -143,12 +145,14 @@ describe("detectSubscriptions", () => {
       NOW
     );
 
-    expect(result).toHaveLength(0);
+    expect(result.mature).toHaveLength(0);
+    expect(result.earlyDetection).toHaveLength(0);
   });
 
   it("requires at least one occurrence to even consider a merchant", () => {
     const result = detectSubscriptions([tx("netflix", -1599, "2026-03-15")], NOW);
-    expect(result).toHaveLength(0);
+    expect(result.mature).toHaveLength(0);
+    expect(result.earlyDetection).toHaveLength(0);
   });
 
   it("ignores incoming money", () => {
@@ -160,37 +164,8 @@ describe("detectSubscriptions", () => {
       ],
       NOW
     );
-    expect(result).toHaveLength(0);
-  });
-
-  it("rejects two occurrences even with a matching cadence gap and identical amounts", () => {
-    // Two same-amount, cadence-matching charges are exactly what you'd see
-    // from either a genuine new subscription OR two unrelated one-off
-    // purchases that happened to land ~30 days apart -- with only one gap
-    // and no second historical amount to check consistency against, there's
-    // no way to tell them apart. Industry practice (Plaid, Ramp) requires
-    // 3+ occurrences before treating a merchant as a confirmed recurring
-    // series; 1-2 occurrences is "early detection" at best, not confirmed.
-    const result = detectSubscriptions(
-      [tx("netflix", -1599, "2026-02-14"), tx("netflix", -1599, "2026-03-16")],
-      NOW
-    );
-    expect(result).toHaveLength(0);
-  });
-
-  it("rejects two occurrences with wildly different amounts (the false-positive this minimum exists to prevent)", () => {
-    // A merchant charged once, then again a week later for a totally
-    // different amount -- two unrelated one-off charges, not a weekly
-    // subscription. With MIN_OCCURRENCES lowered to 2 this used to slip
-    // through: a single historical amount has nothing to check consistency
-    // against, so any two same-merchant charges with a cadence-matching gap
-    // would "detect" regardless of whether the amounts had anything in
-    // common.
-    const result = detectSubscriptions(
-      [tx("mercuryo", -40000, "2026-03-07"), tx("mercuryo", -5000, "2026-03-14")],
-      NOW
-    );
-    expect(result).toHaveLength(0);
+    expect(result.mature).toHaveLength(0);
+    expect(result.earlyDetection).toHaveLength(0);
   });
 
   it("detects at exactly the new minimum of three occurrences", () => {
@@ -202,9 +177,9 @@ describe("detectSubscriptions", () => {
       ],
       NOW
     );
-    expect(result).toHaveLength(1);
-    expect(result[0].cadence).toBe("monthly");
-    expect(result[0].occurrences).toBe(3);
+    expect(result.mature).toHaveLength(1);
+    expect(result.mature[0].cadence).toBe("monthly");
+    expect(result.mature[0].occurrences).toBe(3);
   });
 
   it("rejects gaps that don't fit any cadence band", () => {
@@ -217,7 +192,7 @@ describe("detectSubscriptions", () => {
       ],
       NOW
     );
-    expect(result).toHaveLength(0);
+    expect(result.mature).toHaveLength(0);
   });
 
   it("sorts results by normalized monthly cost, most expensive first", () => {
@@ -237,10 +212,77 @@ describe("detectSubscriptions", () => {
     );
 
     // Weekly meal kit (~€151.7/mo) > monthly netflix (€15.99/mo) > yearly domain (€1/mo)
-    expect(result.map((r) => r.merchant)).toEqual([
+    expect(result.mature.map((r) => r.merchant)).toEqual([
       "meal kit co",
       "netflix",
       "domain registrar",
     ]);
+  });
+
+  describe("early-detection tier (exactly 2 occurrences)", () => {
+    it("surfaces a cadence-fitting, same-amount pair as early-detection, not mature", () => {
+      // Same two charges that used to slip through as a confirmed
+      // "subscription" under the old MIN_OCCURRENCES=2 (the original
+      // Mercuryo-adjacent bug class) now land in the tentative tier instead
+      // of being either silently confirmed or silently dropped.
+      const result = detectSubscriptions(
+        [tx("netflix", -1599, "2026-02-14"), tx("netflix", -1599, "2026-03-16")],
+        NOW
+      );
+      expect(result.mature).toHaveLength(0);
+      expect(result.earlyDetection).toHaveLength(1);
+      expect(result.earlyDetection[0]).toMatchObject({
+        merchant: "netflix",
+        amount: 1599,
+        cadence: "monthly",
+        occurrences: 2,
+        tier: "early_detection",
+        status: "active",
+      });
+    });
+
+    it("rejects two occurrences with wildly different amounts even if the gap fits a cadence band (the Mercuryo false positive)", () => {
+      // A merchant charged once, then again a week later for a totally
+      // different amount -- two unrelated one-off charges, not a weekly
+      // subscription. Cadence alone isn't enough; amount agreement is what
+      // keeps this out of both tiers.
+      const result = detectSubscriptions(
+        [tx("mercuryo", -40000, "2026-03-07"), tx("mercuryo", -5000, "2026-03-14")],
+        NOW
+      );
+      expect(result.mature).toHaveLength(0);
+      expect(result.earlyDetection).toHaveLength(0);
+    });
+
+    it("rejects two occurrences whose gap doesn't fit any cadence band, even with matching amounts", () => {
+      const result = detectSubscriptions(
+        [tx("odd cadence", -1000, "2026-01-01"), tx("odd cadence", -1000, "2026-01-18")],
+        NOW
+      );
+      expect(result.mature).toHaveLength(0);
+      expect(result.earlyDetection).toHaveLength(0);
+    });
+
+    it("flags an early-detection candidate as possibly-cancelled once well past its next expected charge", () => {
+      const result = detectSubscriptions(
+        [tx("new gym", -3000, "2025-12-01"), tx("new gym", -3000, "2026-01-01")],
+        NOW // April 15th -- ~3.5 months after the second charge, well past a monthly grace window
+      );
+      expect(result.earlyDetection).toHaveLength(1);
+      expect(result.earlyDetection[0].status).toBe("possibly-cancelled");
+    });
+
+    it("does not double count a merchant that reaches maturity -- three occurrences never appear in earlyDetection", () => {
+      const result = detectSubscriptions(
+        [
+          tx("netflix", -1599, "2026-02-15"),
+          tx("netflix", -1599, "2026-03-15"),
+          tx("netflix", -1599, "2026-04-14"),
+        ],
+        NOW
+      );
+      expect(result.mature).toHaveLength(1);
+      expect(result.earlyDetection).toHaveLength(0);
+    });
   });
 });

@@ -25,7 +25,13 @@ router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
 
     const dismissed = new Set(dismissals.map((d) => d.merchantNameNormalized));
 
-    const subscriptions = detectSubscriptions(transactions).filter(
+    const detected = detectSubscriptions(transactions);
+    const subscriptions = detected.mature.filter((sub) => !dismissed.has(sub.merchant));
+    // Tentative (2-occurrence) merchants -- shown separately, dismissible the
+    // same way, but never folded into totalMonthlyCost: they haven't been
+    // validated by a third charge yet, so the headline total should only
+    // ever reflect confirmed recurring spend.
+    const possibleSubscriptions = detected.earlyDetection.filter(
       (sub) => !dismissed.has(sub.merchant)
     );
 
@@ -33,6 +39,7 @@ router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
 
     res.json({
       subscriptions,
+      possibleSubscriptions,
       totalMonthlyCost: Math.round(totalMonthlyCost),
       count: subscriptions.length,
     });

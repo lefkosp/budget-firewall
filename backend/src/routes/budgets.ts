@@ -110,7 +110,10 @@ router.get("/suggestions", authenticateToken, async (req: AuthRequest, res: Resp
 
     let suggestions = suggestBudgets(transactions);
 
-    const recurring = detectSubscriptions(transactions).filter(
+    // Mature (3+ occurrence) subscriptions only -- early-detection tier
+    // candidates haven't been validated by a third charge yet, so they
+    // shouldn't move a budget suggestion.
+    const recurring = detectSubscriptions(transactions).mature.filter(
       (sub) => sub.computedCategory === "Subscriptions"
     );
     if (recurring.length > 0) {
