@@ -3,53 +3,34 @@ import jwt from "jsonwebtoken";
 import { User } from "../models/User";
 import { config } from "../config/env";
 import { JwtPayload } from "../types";
+import { createRefreshToken } from "./refreshToken.service";
 
-export async function registerUser(
-  email: string,
-  password: string,
-  name?: string
-): Promise<{ user: { id: string; email: string; name?: string }; token: string }> {
-  // Check if user already exists
+interface AuthResult {
+  user: { id: string; email: string; name?: string };
+  accessToken: string;
+  refreshToken: string;
+}
+
+export async function registerUser(email: string, password: string, name?: string): Promise<AuthResult> {
   const existingUser = await User.findOne({ email: email.toLowerCase() });
   if (existingUser) {
     throw new Error("User with this email already exists");
   }
 
-  // Hash password
   const passwordHash = await bcrypt.hash(password, 10);
 
-  // Create user
   const user = await User.create({
     email: email.toLowerCase(),
     passwordHash,
     name,
   });
 
-  // Generate JWT token
-  const token = generateToken(user._id.toString(), user.email);
-
-  return {
-    user: {
-      id: user._id.toString(),
-      email: user.email,
-      name: user.name || undefined,
-    },
-    token,
-  };
+  return buildAuthResult(user._id.toString(), user.email, user.name);
 }
 
-export async function loginUser(
-  email: string,
-  password: string
-): Promise<{ user: { id: string; email: string; name?: string }; token: string }> {
-  // Find user
+export async function loginUser(email: string, password: string): Promise<AuthResult> {
   const user = await User.findOne({ email: email.toLowerCase() });
-  if (!user) {
-    throw new Error("Invalid email or password");
-  }
-
-  // Check password
-  if (!user.passwordHash) {
+  if (!user || !user.passwordHash) {
     throw new Error("Invalid email or password");
   }
 
@@ -58,21 +39,23 @@ export async function loginUser(
     throw new Error("Invalid email or password");
   }
 
-  // Generate JWT token
-  const token = generateToken(user._id.toString(), user.email);
+  return buildAuthResult(user._id.toString(), user.email, user.name);
+}
+
+async function buildAuthResult(userId: string, email: string, name?: string): Promise<AuthResult> {
+  const [accessToken, refreshToken] = await Promise.all([
+    Promise.resolve(generateAccessToken(userId, email)),
+    createRefreshToken(userId),
+  ]);
 
   return {
-    user: {
-      id: user._id.toString(),
-      email: user.email,
-      name: user.name || undefined,
-    },
-    token,
+    user: { id: userId, email, name: name || undefined },
+    accessToken,
+    refreshToken,
   };
 }
 
-function generateToken(userId: string, email: string): string {
+export function generateAccessToken(userId: string, email: string): string {
   const payload: JwtPayload = { userId, email };
-  return jwt.sign(payload, config.jwtSecret, { expiresIn: "7d" });
+  return jwt.sign(payload, config.jwtSecret, { expiresIn: config.accessTokenTtl as jwt.SignOptions["expiresIn"] });
 }
-

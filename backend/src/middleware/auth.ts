@@ -2,23 +2,12 @@ import { Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { config } from "../config/env";
 import { AuthRequest, JwtPayload } from "../types";
+import { ACCESS_COOKIE_NAME } from "../utils/authCookies";
 
-export function authenticateToken(
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-): void {
-  if (req.path.includes("/import-csv")) {
-    console.log(`[Auth Middleware] Checking authentication for ${req.path}`);
-  }
-  
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1]; // Bearer TOKEN
+export function authenticateToken(req: AuthRequest, res: Response, next: NextFunction): void {
+  const token = req.cookies?.[ACCESS_COOKIE_NAME];
 
   if (!token) {
-    if (req.path.includes("/import-csv")) {
-      console.log(`[Auth Middleware] No token provided for ${req.path}`);
-    }
     res.status(401).json({ error: "Authentication required" });
     return;
   }
@@ -30,15 +19,8 @@ export function authenticateToken(
       id: decoded.userId,
       email: decoded.email,
     };
-    if (req.path.includes("/import-csv")) {
-      console.log(`[Auth Middleware] Authentication successful for user ${decoded.userId}`);
-    }
     next();
-  } catch (error: any) {
-    if (req.path.includes("/import-csv")) {
-      console.error(`[Auth Middleware] Token verification failed:`, error.message);
-    }
+  } catch {
     res.status(403).json({ error: "Invalid or expired token" });
   }
 }
-

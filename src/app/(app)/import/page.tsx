@@ -55,24 +55,12 @@ export default function ImportPage() {
       }
       formData.append("currency", currency);
 
-      // Use fetch directly since api client might not handle FormData well
-      const token = localStorage.getItem("token");
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-
-      const response = await fetch(`${apiUrl}/api/transactions/import-csv`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to import CSV");
-      }
-
-      const data = await response.json();
+      const data = await api.post<{
+        imported: number;
+        new: number;
+        skipped: number;
+        nonEurCount: number;
+      }>("/api/transactions/import-csv", formData);
       setResult(data);
     } catch (err: any) {
       setError(err.message || "Failed to import CSV file");

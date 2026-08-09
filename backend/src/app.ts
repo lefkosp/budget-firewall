@@ -1,9 +1,11 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import { config } from "./config/env";
 import { errorHandler } from "./middleware/errorHandler";
 import { authRateLimiter } from "./middleware/rateLimit";
+import { csrfProtection } from "./middleware/csrf";
 
 // Routes
 import authRoutes from "./routes/auth";
@@ -32,22 +34,12 @@ app.use(
 // Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(cookieParser());
+app.use(csrfProtection);
 
 // Health check
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
-});
-
-// Request logging middleware (for debugging)
-app.use((req, res, next) => {
-  if (req.path.includes("/import-csv")) {
-    console.log(`[App] Incoming request: ${req.method} ${req.path}`);
-    console.log(`[App] Headers:`, {
-      authorization: req.headers.authorization ? "present" : "missing",
-      "content-type": req.headers["content-type"],
-    });
-  }
-  next();
 });
 
 // API routes

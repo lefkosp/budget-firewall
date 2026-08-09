@@ -1,16 +1,10 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { api } from "@/lib/api";
-
-interface User {
-  id: string;
-  email: string;
-  name?: string;
-}
+import { api, AuthUser } from "@/lib/api";
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name?: string) => Promise<void>;
@@ -20,29 +14,34 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is authenticated on mount
-    const token = localStorage.getItem("token");
-    if (token) {
-      // Verify token by fetching user info
-      api
-        .get<{ id: string; email: string; name?: string }>("/api/me")
-        .then((userData) => {
-          setUser(userData);
-        })
-        .catch(() => {
-          // Token is invalid, remove it
-          api.logout();
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    } else {
-      setLoading(false);
-    }
+    // One-time cleanup: older clients stored the JWT in localStorage, which
+    // is now unused but would otherwise sit there indefinitely, readable by
+    // any XSS -- exactly what moving to httpOnly cookies is meant to avoid.
+    localStorage.removeItem("token");
+
+    const unsubscribe = api.onSessionExpired(() => setUser(null));
+
+    // The access/refresh tokens live in httpOnly cookies, so there's nothing
+    // to read client-side -- just ask the backend who (if anyone) they
+    // belong to. A 401 here is a normal "not logged in" case, handled by
+    // api.ts's refresh-then-SessionExpiredError flow.
+    api
+      .get<{ id: string; email: string; name?: string }>("/api/me")
+      .then((userData) => {
+        setUser(userData);
+      })
+      .catch(() => {
+        setUser(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+
+    return unsubscribe;
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -56,8 +55,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    api.logout();
     setUser(null);
+    api.logout().catch(() => {
+      // Best-effort server-side revoke -- UI already reflects logged-out state.
+    });
   };
 
   return (
@@ -74,4 +75,3 @@ export function useAuth() {
   }
   return context;
 }
-

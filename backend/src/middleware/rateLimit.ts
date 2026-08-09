@@ -1,4 +1,11 @@
 import rateLimit from "express-rate-limit";
+import { config } from "../config/env";
+
+// The integration test suite exercises these exact routes repeatedly
+// against a single in-process rate-limit store, which would otherwise trip
+// the limiter on legitimate test traffic and produce flaky failures --
+// bypassed only in the test environment, never in dev or production.
+const skipInTests = () => config.nodeEnv === "test";
 
 /**
  * Brute-force protection on login/register. Keyed by IP (express-rate-limit's
@@ -12,6 +19,7 @@ export const authRateLimiter = rateLimit({
   limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipInTests,
   message: { error: "Too many attempts. Please try again later." },
 });
 
@@ -26,5 +34,20 @@ export const importRateLimiter = rateLimit({
   limit: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipInTests,
   message: { error: "Too many imports. Please try again later." },
+});
+
+/**
+ * Password reset tokens are the only secret guarding an account reset --
+ * tighter than the general auth limiter to make guessing a token
+ * impractical, since (unlike login) there's no password to also get wrong.
+ */
+export const passwordResetRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: skipInTests,
+  message: { error: "Too many attempts. Please try again later." },
 });
