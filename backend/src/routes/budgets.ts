@@ -1,10 +1,12 @@
 import { Router, Response } from "express";
+import { body, param } from "express-validator";
 import { Types } from "mongoose";
 import { authenticateToken } from "../middleware/auth";
+import { validate } from "../middleware/validate";
 import { AuthRequest } from "../types";
 import { Transaction } from "../models/Transaction";
 import { BudgetCategory } from "../models/BudgetCategory";
-import { SPENDING_CATEGORIES } from "../constants/categories";
+import { SPENDING_CATEGORIES, isValidCategory } from "../constants/categories";
 import { startOfUTCMonth, endOfUTCMonth } from "../utils/monthWindow";
 import { detectSubscriptions, monthlyCost } from "../services/subscriptions.service";
 import { suggestBudgets, applySubscriptionsOverride } from "../services/budgetSuggest.service";
@@ -130,61 +132,69 @@ router.get("/suggestions", authenticateToken, async (req: AuthRequest, res: Resp
 });
 
 // Updates a single category's limit (the "edit" half of review & accept).
-router.put("/:id", authenticateToken, async (req: AuthRequest, res: Response) => {
-  try {
-    const ownerUserId = new Types.ObjectId(req.userId!);
-    const { monthlyLimit } = req.body;
+router.put(
+  "/:id",
+  authenticateToken,
+  validate([param("id").isMongoId(), body("monthlyLimit").isFloat({ min: 0 })]),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const ownerUserId = new Types.ObjectId(req.userId!);
+      const { monthlyLimit } = req.body;
 
-    if (typeof monthlyLimit !== "number" || monthlyLimit < 0) {
-      res.status(400).json({ error: "monthlyLimit must be a non-negative number" });
-      return;
+      const budget = await BudgetCategory.findOneAndUpdate(
+        { _id: req.params.id, ownerUserId },
+        { monthlyLimit },
+        { new: true }
+      ).lean();
+
+      if (!budget) {
+        res.status(404).json({ error: "Budget category not found" });
+        return;
+      }
+
+      res.json({ id: budget._id.toString(), name: budget.name, monthlyLimit: budget.monthlyLimit });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
-
-    const budget = await BudgetCategory.findOneAndUpdate(
-      { _id: req.params.id, ownerUserId },
-      { monthlyLimit },
-      { new: true }
-    ).lean();
-
-    if (!budget) {
-      res.status(404).json({ error: "Budget category not found" });
-      return;
-    }
-
-    res.json({ id: budget._id.toString(), name: budget.name, monthlyLimit: budget.monthlyLimit });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
   }
-});
+);
 
 // "Accept all suggestions" -- applies every suggested amount in one request
-// instead of the frontend firing one PUT per category.
-router.post("/accept-all", authenticateToken, async (req: AuthRequest, res: Response) => {
-  try {
-    const ownerUserId = new Types.ObjectId(req.userId!);
-    const { suggestions } = req.body as {
-      suggestions: { category: string; suggested: number }[];
-    };
+// instead of the frontend firing one PUT per category. `category` is
+// validated against the real taxonomy rather than just checked for being a
+// string -- it flows straight into a Mongo query filter (`name: s.category`)
+// below, so an unvalidated value here would be a NoSQL injection vector
+// (e.g. `{"$ne": null}` matching every category's document instead of one).
+router.post(
+  "/accept-all",
+  authenticateToken,
+  validate([
+    body("suggestions").isArray(),
+    body("suggestions.*.category").isString().custom((value) => isValidCategory(value)),
+    body("suggestions.*.suggested").isFloat({ min: 0 }),
+  ]),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const ownerUserId = new Types.ObjectId(req.userId!);
+      const { suggestions } = req.body as {
+        suggestions: { category: string; suggested: number }[];
+      };
 
-    if (!Array.isArray(suggestions)) {
-      res.status(400).json({ error: "suggestions must be an array" });
-      return;
-    }
-
-    await ensureCurrentCategories(ownerUserId);
-    await Promise.all(
-      suggestions.map((s) =>
-        BudgetCategory.updateOne(
-          { ownerUserId, name: s.category },
-          { monthlyLimit: s.suggested }
+      await ensureCurrentCategories(ownerUserId);
+      await Promise.all(
+        suggestions.map((s) =>
+          BudgetCategory.updateOne(
+            { ownerUserId, name: s.category },
+            { monthlyLimit: s.suggested }
+          )
         )
-      )
-    );
+      );
 
-    res.json(await currentBudgets(ownerUserId));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+      res.json(await currentBudgets(ownerUserId));
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   }
-});
+);
 
 export default router;

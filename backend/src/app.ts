@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import { config } from "./config/env";
 import { errorHandler } from "./middleware/errorHandler";
+import { authRateLimiter } from "./middleware/rateLimit";
 
 // Routes
 import authRoutes from "./routes/auth";
@@ -50,7 +51,7 @@ app.use((req, res, next) => {
 });
 
 // API routes
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authRateLimiter, authRoutes);
 app.use("/api/me", meRoutes);
 app.use("/api/transactions", transactionsRoutes);
 app.use("/api/banking", bankingRoutes);

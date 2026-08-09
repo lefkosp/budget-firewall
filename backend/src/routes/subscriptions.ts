@@ -1,6 +1,8 @@
 import { Router, Response } from "express";
+import { param } from "express-validator";
 import { Types } from "mongoose";
 import { authenticateToken } from "../middleware/auth";
+import { validate } from "../middleware/validate";
 import { AuthRequest } from "../types";
 import { Transaction } from "../models/Transaction";
 import { SubscriptionDismissal } from "../models/SubscriptionDismissal";
@@ -52,6 +54,7 @@ router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
 router.post(
   "/:merchant/dismiss",
   authenticateToken,
+  validate([param("merchant").notEmpty().isLength({ max: 200 })]),
   async (req: AuthRequest, res: Response) => {
     try {
       const ownerUserId = new Types.ObjectId(req.userId!);

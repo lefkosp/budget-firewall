@@ -1,4 +1,4 @@
-import { Router, Response } from "express";
+import { Router, Response, NextFunction } from "express";
 import { authenticateToken } from "../middleware/auth";
 import { AuthRequest } from "../types";
 import { Transaction } from "../models/Transaction";
@@ -10,9 +10,39 @@ import { setTransactionCategory } from "../services/categoryOverride.service";
 import { decideTransaction, getTransactionApprovalHistory } from "../services/approval.service";
 import { ApprovalDecision } from "../models/Approval";
 import { isValidCategory } from "../constants/categories";
+import { escapeRegex } from "../utils/escapeRegex";
+import { importRateLimiter } from "../middleware/rateLimit";
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage() });
+// 10MB cap: the memory-storage engine buffers the whole file in the
+// process's memory before it ever reaches the parser, so an unbounded
+// upload is a straightforward way to OOM the server. The real Revolut
+// export this was built against is well under 1MB for a full year of
+// transactions -- 10MB is generous headroom, not a tight fit.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+// multer's own errors (oversized file, malformed multipart body) surface via
+// a callback rather than a thrown exception, so they never reach the route
+// handler's try/catch below -- this turns them into the same JSON error
+// shape as everything else instead of falling through to the generic 500
+// error handler with a confusing "File too large" message on a 500.
+function handleCsvUpload(req: AuthRequest, res: Response, next: NextFunction) {
+  upload.single("csvFile")(req, res, (err: unknown) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        res.status(413).json({ error: "CSV file is too large (10MB limit)" });
+        return;
+      }
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    if (err) {
+      next(err);
+      return;
+    }
+    next();
+  });
+}
 
 router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
@@ -81,11 +111,16 @@ router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
       query.computedCategory = category;
     }
 
-    // Merchant search (case-insensitive partial match)
+    // Merchant search (case-insensitive partial match). The search term is
+    // escaped before it reaches $regex -- unescaped, a term containing
+    // regex metacharacters is interpreted as a pattern rather than literal
+    // text (ReDoS risk from a pathological pattern, or a filter bypass from
+    // something like ".*" matching every transaction).
     if (merchant && typeof merchant === "string") {
+      const pattern = escapeRegex(merchant);
       query.$or = [
-        { merchantNameNormalized: { $regex: merchant, $options: "i" } },
-        { rawDescription: { $regex: merchant, $options: "i" } },
+        { merchantNameNormalized: { $regex: pattern, $options: "i" } },
+        { rawDescription: { $regex: pattern, $options: "i" } },
       ];
     }
 
@@ -219,7 +254,8 @@ router.post(
 router.post(
   "/import-csv",
   authenticateToken,
-  upload.single("csvFile"),
+  importRateLimiter,
+  handleCsvUpload,
   async (req: AuthRequest, res: Response) => {
     const startTime = Date.now();
     const userId = req.userId!;

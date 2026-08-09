@@ -1,6 +1,8 @@
 import { Router, Response } from "express";
+import { body, param } from "express-validator";
 import { Types } from "mongoose";
 import { authenticateToken } from "../middleware/auth";
+import { validate } from "../middleware/validate";
 import { AuthRequest } from "../types";
 import { Intent, IntentStatus } from "../models/Intent";
 import { isValidCategory } from "../constants/categories";
@@ -42,71 +44,71 @@ router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
 // Creates a pre-approval intent: "I'm about to spend ~X at Y" -- matched
 // against future imports so the expected charge doesn't need a manual
 // approval later. See intentMatch.service.ts for the matching itself.
-router.post("/", authenticateToken, async (req: AuthRequest, res: Response) => {
-  try {
-    const ownerUserId = new Types.ObjectId(req.userId!);
-    const { amount, merchantText, category, note, expiresAt } = req.body as {
-      amount?: number;
-      merchantText?: string;
-      category?: string;
-      note?: string;
-      expiresAt?: string;
-    };
+router.post(
+  "/",
+  authenticateToken,
+  validate([
+    body("amount").isFloat({ gt: 0 }),
+    body("merchantText").isString().trim().isLength({ min: 1, max: 200 }),
+    body("category").isString().custom((value) => isValidCategory(value)),
+    body("note").optional().isString().trim().isLength({ max: 1000 }),
+    body("expiresAt")
+      .isISO8601()
+      .custom((value) => new Date(value) > new Date()),
+  ]),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const ownerUserId = new Types.ObjectId(req.userId!);
+      const { amount, merchantText, category, note, expiresAt } = req.body as {
+        amount: number;
+        merchantText: string;
+        category: string;
+        note?: string;
+        expiresAt: string;
+      };
 
-    if (typeof amount !== "number" || amount <= 0) {
-      res.status(400).json({ error: "amount must be a positive number" });
-      return;
-    }
-    if (!merchantText || !merchantText.trim()) {
-      res.status(400).json({ error: "merchantText is required" });
-      return;
-    }
-    if (!category || !isValidCategory(category)) {
-      res.status(400).json({ error: "Invalid category" });
-      return;
-    }
-    const expiry = expiresAt ? new Date(expiresAt) : null;
-    if (!expiry || Number.isNaN(expiry.getTime()) || expiry <= new Date()) {
-      res.status(400).json({ error: "expiresAt must be a valid future date" });
-      return;
-    }
+      const intent = await Intent.create({
+        ownerUserId,
+        amount,
+        merchantText: merchantText.trim(),
+        category,
+        note: note?.trim() || undefined,
+        expiresAt: new Date(expiresAt),
+        status: IntentStatus.PENDING,
+      });
 
-    const intent = await Intent.create({
-      ownerUserId,
-      amount,
-      merchantText: merchantText.trim(),
-      category,
-      note: note?.trim() || undefined,
-      expiresAt: expiry,
-      status: IntentStatus.PENDING,
-    });
-
-    res.status(201).json(serialize(intent.toObject()));
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+      res.status(201).json(serialize(intent.toObject()));
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   }
-});
+);
 
 // Cancels a pending intent. Only pending ones -- once an intent has matched
 // a transaction (or expired), it's history, not something to delete.
-router.delete("/:id", authenticateToken, async (req: AuthRequest, res: Response) => {
-  try {
-    const ownerUserId = new Types.ObjectId(req.userId!);
-    const intent = await Intent.findOneAndDelete({
-      _id: req.params.id,
-      ownerUserId,
-      status: IntentStatus.PENDING,
-    });
+router.delete(
+  "/:id",
+  authenticateToken,
+  validate([param("id").isMongoId()]),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const ownerUserId = new Types.ObjectId(req.userId!);
+      const intent = await Intent.findOneAndDelete({
+        _id: req.params.id,
+        ownerUserId,
+        status: IntentStatus.PENDING,
+      });
 
-    if (!intent) {
-      res.status(404).json({ error: "Pending intent not found" });
-      return;
+      if (!intent) {
+        res.status(404).json({ error: "Pending intent not found" });
+        return;
+      }
+
+      res.json({ deleted: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
     }
-
-    res.json({ deleted: true });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
   }
-});
+);
 
 export default router;
