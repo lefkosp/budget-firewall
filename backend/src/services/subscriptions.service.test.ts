@@ -63,6 +63,42 @@ describe("detectSubscriptions", () => {
     expect(result[0].cadence).toBe("yearly");
   });
 
+  it("detects a subscription whose price changed once, permanently, deep in a long history", () => {
+    // Real shape pulled from actual user data (see EXPECTED_RESULTS.md):
+    // Spotify charged 12.99 monthly for 8 months, then permanently
+    // increased to 14.99 for the next 4. Checking amount consistency
+    // against ALL of history would reject this outright -- the 8 older
+    // charges "disagree" with the 4 newer ones even though each price was
+    // perfectly stable within its own era. Checking only a recent window
+    // should let it through as a normal, currently-stable subscription.
+    const result = detectSubscriptions(
+      [
+        tx("spotify", -1299, "2026-01-23"),
+        tx("spotify", -1299, "2026-02-18"),
+        tx("spotify", -1299, "2026-03-18"),
+        tx("spotify", -1299, "2026-04-22"),
+        tx("spotify", -1299, "2026-05-22"),
+        tx("spotify", -1299, "2026-06-29"),
+        tx("spotify", -1299, "2026-07-24"),
+        tx("spotify", -1299, "2026-08-24"),
+        tx("spotify", -1499, "2026-09-20"),
+        tx("spotify", -1499, "2026-10-22"),
+        tx("spotify", -1499, "2026-11-26"),
+        tx("spotify", -1499, "2026-12-18"),
+      ],
+      new Date("2027-01-05T00:00:00Z")
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      merchant: "spotify",
+      amount: 1499,
+      cadence: "monthly",
+      occurrences: 12,
+      status: "active",
+    });
+  });
+
   it("flags a price increase as price-changed", () => {
     const result = detectSubscriptions(
       [

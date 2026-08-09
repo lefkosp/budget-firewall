@@ -67,6 +67,13 @@ const AMOUNT_TOLERANCE = 0.08;
  */
 const MIN_OCCURRENCES = 3;
 
+/**
+ * How many of the most recent historical charges must agree with each
+ * other on price, when deciding whether a merchant's amount is "stable."
+ * Deliberately not "all of history" -- see the comment where it's used.
+ */
+const RECENT_AMOUNT_WINDOW = 3;
+
 function median(nums: number[]): number {
   const sorted = [...nums].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
@@ -150,24 +157,33 @@ export function detectSubscriptions(
     );
     if (!regular) continue;
 
-    // The charges before the latest one need to agree with each other. If
-    // they don't, this merchant doesn't have a stable price and isn't a
-    // subscription (e.g. groceries) -- the latest charge is allowed to
-    // differ, since that's what "price changed" means.
+    // The charges immediately before the latest one need to agree with each
+    // other -- but only a *recent* window of them, not the entire history.
+    // A subscription whose price changed once, permanently, deep in a long
+    // history (8 months at one price, then several more at a higher one)
+    // would otherwise get rejected outright: pooling every historical
+    // amount into one median means the newer-price charges "disagree" with
+    // the older ones, even though each price was perfectly stable within
+    // its own era. Checking only the trailing window lets a real, one-time
+    // price change happen without nuking detection of the subscription
+    // altogether -- Plaid's own recurring-transactions API exists to
+    // surface exactly this ("average and last amount... to determine
+    // changes to bills or subscriptions") rather than discard the stream.
     const historicalAmounts = amounts.slice(0, -1);
     const latestAmount = amounts[amounts.length - 1];
+    const recentHistorical = historicalAmounts.slice(-RECENT_AMOUNT_WINDOW);
     const historicalMedian =
-      historicalAmounts.length > 0 ? median(historicalAmounts) : latestAmount;
+      recentHistorical.length > 0 ? median(recentHistorical) : latestAmount;
 
     if (
-      historicalAmounts.length > 1 &&
-      !historicalAmounts.every((a) => withinTolerance(a, historicalMedian, AMOUNT_TOLERANCE))
+      recentHistorical.length > 1 &&
+      !recentHistorical.every((a) => withinTolerance(a, historicalMedian, AMOUNT_TOLERANCE))
     ) {
       continue;
     }
 
     const priceChanged =
-      historicalAmounts.length > 0 &&
+      recentHistorical.length > 0 &&
       !withinTolerance(latestAmount, historicalMedian, AMOUNT_TOLERANCE);
 
     const lastCharged = dates[dates.length - 1];
