@@ -84,6 +84,14 @@ describe("categorizeTransaction", () => {
     expect(categorize("ACME WIDGETS")).toBe("Other");
   });
 
+  it("prefers the more specific category when a generic keyword and a specific keyword both match", () => {
+    // "Store" (Shopping's generic catch-all) and "pharmacy" (Health's
+    // specific keyword) both match here. Shopping is checked earlier in
+    // MERCHANT_PATTERNS, but "pharmacy" is the longer, more specific match
+    // and should win regardless of category order.
+    expect(categorize("BOOTS PHARMACY STORE")).toBe("Health");
+  });
+
   it("uses generic keywords to catch the long tail", () => {
     // Deliberate: a merchant we've never seen but whose name says what it is
     // should still land somewhere better than Other.

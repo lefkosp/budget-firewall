@@ -153,6 +153,41 @@ function matchesAny(haystack: string, patterns: RegExp[]): boolean {
   return patterns.some((pattern) => pattern.test(haystack));
 }
 
+/** Length of the substring a pattern actually matched, or 0 if it didn't match at all. */
+function matchLength(haystack: string, pattern: RegExp): number {
+  return haystack.match(pattern)?.[0].length ?? 0;
+}
+
+/**
+ * Picks the category whose pattern matched the longest substring of the
+ * haystack -- "most specific wins," not "first in the list wins." Category
+ * order in MERCHANT_PATTERNS is otherwise arbitrary, and several categories
+ * carry deliberately broad catch-all keywords (Shopping's `store`/`shop`,
+ * Eating Out's `bar`/`cafe`) to catch the long tail of merchants that don't
+ * match a named brand. Without this, a merchant like "Boots Pharmacy Store"
+ * would land in Shopping (checked before Health) purely because Shopping
+ * happens to come first, even though "pharmacy" is the far more specific
+ * signal. This mirrors how keyword-based categorizers are built elsewhere
+ * (e.g. PocketSmith's category rules: "the category whose matched keyword
+ * is longest is assigned").
+ */
+function bestMerchantCategoryMatch(haystack: string): SpendingCategory | null {
+  let bestCategory: SpendingCategory | null = null;
+  let bestLength = 0;
+
+  for (const { category, patterns } of MERCHANT_PATTERNS) {
+    for (const pattern of patterns) {
+      const length = matchLength(haystack, pattern);
+      if (length > bestLength) {
+        bestLength = length;
+        bestCategory = category;
+      }
+    }
+  }
+
+  return bestCategory;
+}
+
 /**
  * Returns the category for a transaction. Never returns "unknown" -- the
  * worst case is "Other", which is a real, budgetable category.
@@ -198,10 +233,9 @@ export function categorizeTransaction(
     return "Income";
   }
 
-  for (const { category, patterns } of MERCHANT_PATTERNS) {
-    if (matchesAny(haystack, patterns)) {
-      return category;
-    }
+  const bestMatch = bestMerchantCategoryMatch(haystack);
+  if (bestMatch) {
+    return bestMatch;
   }
 
   return DEFAULT_CATEGORY;
