@@ -5,6 +5,8 @@ import { api, AuthUser } from "@/lib/api";
 
 interface AuthContextType {
   user: AuthUser | null;
+  /** The owner whose data is currently being viewed, if not the logged-in user themselves (see the collaborator "switch owner" flow). */
+  actingAs: AuthUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name?: string) => Promise<void>;
@@ -15,6 +17,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [actingAs, setActingAs] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,9 +33,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // belong to. A 401 here is a normal "not logged in" case, handled by
     // api.ts's refresh-then-SessionExpiredError flow.
     api
-      .get<{ id: string; email: string; name?: string }>("/api/me")
+      .get<{ id: string; email: string; name?: string; actingAs: AuthUser | null }>("/api/me")
       .then((userData) => {
         setUser(userData);
+        setActingAs(userData.actingAs);
       })
       .catch(() => {
         setUser(null);
@@ -47,22 +51,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     const result = await api.login(email, password);
     setUser(result.user);
+    setActingAs(null);
   };
 
   const register = async (email: string, password: string, name?: string) => {
     const result = await api.register(email, password, name);
     setUser(result.user);
+    setActingAs(null);
   };
 
   const logout = () => {
     setUser(null);
+    setActingAs(null);
     api.logout().catch(() => {
       // Best-effort server-side revoke -- UI already reflects logged-out state.
     });
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, actingAs, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -18,6 +18,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { OwnerSwitcher } from "@/components/app/OwnerSwitcher";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
@@ -150,6 +151,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           ))}
         </SidebarContent>
         <SidebarFooter>
+          <OwnerSwitcher />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton size="lg">
