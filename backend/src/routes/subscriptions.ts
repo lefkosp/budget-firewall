@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import { param } from "express-validator";
 import { Types } from "mongoose";
 import { authenticateToken } from "../middleware/auth";
+import { resolveOwner, requireOwnerSelf } from "../middleware/resolveOwner";
 import { validate } from "../middleware/validate";
 import { AuthRequest } from "../types";
 import { Transaction } from "../models/Transaction";
@@ -11,9 +12,9 @@ import { detectSubscriptions, monthlyCost } from "../services/subscriptions.serv
 const router = Router();
 
 // List detected subscriptions, most expensive (normalized to monthly) first.
-router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get("/", authenticateToken, resolveOwner, async (req: AuthRequest, res: Response) => {
   try {
-    const ownerUserId = new Types.ObjectId(req.userId!);
+    const ownerUserId = new Types.ObjectId(req.ownerUserId!);
 
     // EUR-only v1: monthlyCost sums amounts, so detection runs on EUR spend
     // only -- a merchant billing in two currencies would otherwise look like
@@ -54,10 +55,12 @@ router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
 router.post(
   "/:merchant/dismiss",
   authenticateToken,
+  resolveOwner,
+  requireOwnerSelf,
   validate([param("merchant").notEmpty().isLength({ max: 200 })]),
   async (req: AuthRequest, res: Response) => {
     try {
-      const ownerUserId = new Types.ObjectId(req.userId!);
+      const ownerUserId = new Types.ObjectId(req.ownerUserId!);
       const merchantNameNormalized = decodeURIComponent(req.params.merchant);
 
       await SubscriptionDismissal.findOneAndUpdate(

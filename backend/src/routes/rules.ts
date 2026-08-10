@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import { body, param } from "express-validator";
 import { Types } from "mongoose";
 import { authenticateToken } from "../middleware/auth";
+import { resolveOwner, requireOwnerSelf } from "../middleware/resolveOwner";
 import { validate } from "../middleware/validate";
 import { AuthRequest } from "../types";
 import { Rule, RuleType } from "../models/Rule";
@@ -73,9 +74,9 @@ function serialize(rule: { _id: Types.ObjectId; type: string; config: any; enabl
   };
 }
 
-router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get("/", authenticateToken, resolveOwner, async (req: AuthRequest, res: Response) => {
   try {
-    const ownerUserId = new Types.ObjectId(req.userId!);
+    const ownerUserId = new Types.ObjectId(req.ownerUserId!);
     await ensureCurrentRules(ownerUserId);
     const rules = await Rule.find({ ownerUserId }).sort({ type: 1 }).lean();
     res.json(rules.map(serialize));
@@ -88,6 +89,8 @@ router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
 router.put(
   "/:id",
   authenticateToken,
+  resolveOwner,
+  requireOwnerSelf,
   validate([
     param("id").isMongoId(),
     body("enabled").optional().isBoolean(),
@@ -95,7 +98,7 @@ router.put(
   ]),
   async (req: AuthRequest, res: Response) => {
     try {
-      const ownerUserId = new Types.ObjectId(req.userId!);
+      const ownerUserId = new Types.ObjectId(req.ownerUserId!);
       const { enabled, config } = req.body as { enabled?: boolean; config?: Record<string, any> };
 
       const update: Record<string, any> = {};
@@ -141,10 +144,12 @@ router.put(
 router.post(
   "/blacklist",
   authenticateToken,
+  resolveOwner,
+  requireOwnerSelf,
   validate([body("merchant").isString().trim().isLength({ min: 1, max: MAX_BLACKLIST_MERCHANT_LENGTH })]),
   async (req: AuthRequest, res: Response) => {
     try {
-      const ownerUserId = new Types.ObjectId(req.userId!);
+      const ownerUserId = new Types.ObjectId(req.ownerUserId!);
       const { merchant } = req.body as { merchant: string };
 
       await ensureCurrentRules(ownerUserId);
@@ -174,9 +179,11 @@ router.post(
 router.delete(
   "/blacklist/:merchant",
   authenticateToken,
+  resolveOwner,
+  requireOwnerSelf,
   async (req: AuthRequest, res: Response) => {
     try {
-      const ownerUserId = new Types.ObjectId(req.userId!);
+      const ownerUserId = new Types.ObjectId(req.ownerUserId!);
       const merchant = decodeURIComponent(req.params.merchant).toLowerCase();
 
       const rule = await Rule.findOne({ ownerUserId, type: RuleType.MERCHANT_BLACKLIST });
@@ -199,9 +206,9 @@ router.delete(
 // history. Rules normally only ever run once, at import time -- this is
 // how a changed threshold or a newly blacklisted merchant reaches
 // transactions that already exist.
-router.post("/reevaluate", authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post("/reevaluate", authenticateToken, resolveOwner, requireOwnerSelf, async (req: AuthRequest, res: Response) => {
   try {
-    const ownerUserId = new Types.ObjectId(req.userId!);
+    const ownerUserId = new Types.ObjectId(req.ownerUserId!);
 
     const [rules, budgets, transactions] = await Promise.all([
       Rule.find({ ownerUserId }).lean(),
@@ -229,7 +236,10 @@ router.post("/reevaluate", authenticateToken, async (req: AuthRequest, res: Resp
       await Transaction.bulkWrite(
         results.map((r) => ({
           updateOne: {
-            filter: { _id: new Types.ObjectId(r.id) },
+            // ownerUserId is redundant with the earlier owner-scoped find
+            // that produced these IDs, but explicit here as defense in
+            // depth rather than leaving that invariant implicit.
+            filter: { _id: new Types.ObjectId(r.id), ownerUserId },
             update: {
               isGambling: r.isGambling,
               isCrypto: r.isCrypto,

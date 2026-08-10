@@ -1,6 +1,7 @@
 import { Router, Response } from "express";
 import { Types } from "mongoose";
 import { authenticateToken } from "../middleware/auth";
+import { resolveOwner } from "../middleware/resolveOwner";
 import { AuthRequest } from "../types";
 import { Transaction } from "../models/Transaction";
 import { NON_SPEND_CATEGORIES } from "../constants/categories";
@@ -117,9 +118,9 @@ async function loadRecentByStatus(ownerUserId: Types.ObjectId, status: string) {
 }
 
 // KPIs plus the two "needs attention" lists the dashboard renders.
-router.get("/dashboard", authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get("/dashboard", authenticateToken, resolveOwner, async (req: AuthRequest, res: Response) => {
   try {
-    const ownerUserId = new Types.ObjectId(req.userId!);
+    const ownerUserId = new Types.ObjectId(req.ownerUserId!);
 
     const [kpis, pending, violations, repeatMerchants] = await Promise.all([
       loadKpis(ownerUserId),
@@ -164,9 +165,9 @@ router.get("/dashboard", authenticateToken, async (req: AuthRequest, res: Respon
  * grows enough for the in-process pass to matter (post-Open-Banking), the
  * group-and-sum stats are the ones to push into the pipeline first.
  */
-router.get("/analytics", authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get("/analytics", authenticateToken, resolveOwner, async (req: AuthRequest, res: Response) => {
   try {
-    const ownerUserId = new Types.ObjectId(req.userId!);
+    const ownerUserId = new Types.ObjectId(req.ownerUserId!);
 
     // EUR-only v1: every chart here sums amount, so the dataset is scoped to
     // EUR up front rather than filtering currency inside each calculation.

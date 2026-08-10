@@ -8,6 +8,12 @@ export interface AuthRequest extends Request {
     email: string;
     name?: string;
   };
+  /** The effective data owner for this request -- req.userId unless resolveOwner.ts confirmed an active collaborator relationship for a different owner. Set by resolveOwner middleware. */
+  ownerUserId?: string;
+  collaboratorContext?: {
+    ownerUserId: string;
+    canApprove: boolean;
+  } | null;
 }
 
 export interface JwtPayload {

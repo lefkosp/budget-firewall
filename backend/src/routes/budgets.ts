@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import { body, param } from "express-validator";
 import { Types } from "mongoose";
 import { authenticateToken } from "../middleware/auth";
+import { resolveOwner, requireOwnerSelf } from "../middleware/resolveOwner";
 import { validate } from "../middleware/validate";
 import { AuthRequest } from "../types";
 import { Transaction } from "../models/Transaction";
@@ -87,9 +88,9 @@ async function currentBudgets(ownerUserId: Types.ObjectId) {
 }
 
 // Current budget limits, one row per spending category.
-router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get("/", authenticateToken, resolveOwner, async (req: AuthRequest, res: Response) => {
   try {
-    const ownerUserId = new Types.ObjectId(req.userId!);
+    const ownerUserId = new Types.ObjectId(req.ownerUserId!);
     await ensureCurrentCategories(ownerUserId);
     res.json(await currentBudgets(ownerUserId));
   } catch (error: any) {
@@ -100,9 +101,9 @@ router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
 // Per-category suggested limits, derived from historical spend. Subscriptions
 // gets its suggestion replaced with the detected recurring total -- see
 // budgetSuggest.service's applySubscriptionsOverride for why.
-router.get("/suggestions", authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get("/suggestions", authenticateToken, resolveOwner, async (req: AuthRequest, res: Response) => {
   try {
-    const ownerUserId = new Types.ObjectId(req.userId!);
+    const ownerUserId = new Types.ObjectId(req.ownerUserId!);
 
     // EUR-only v1: suggestions (and the recurring-subscription override
     // merged into them below) are derived only from EUR spend.
@@ -135,10 +136,12 @@ router.get("/suggestions", authenticateToken, async (req: AuthRequest, res: Resp
 router.put(
   "/:id",
   authenticateToken,
+  resolveOwner,
+  requireOwnerSelf,
   validate([param("id").isMongoId(), body("monthlyLimit").isFloat({ min: 0 })]),
   async (req: AuthRequest, res: Response) => {
     try {
-      const ownerUserId = new Types.ObjectId(req.userId!);
+      const ownerUserId = new Types.ObjectId(req.ownerUserId!);
       const { monthlyLimit } = req.body;
 
       const budget = await BudgetCategory.findOneAndUpdate(
@@ -168,6 +171,8 @@ router.put(
 router.post(
   "/accept-all",
   authenticateToken,
+  resolveOwner,
+  requireOwnerSelf,
   validate([
     body("suggestions").isArray(),
     body("suggestions.*.category").isString().custom((value) => isValidCategory(value)),
@@ -175,7 +180,7 @@ router.post(
   ]),
   async (req: AuthRequest, res: Response) => {
     try {
-      const ownerUserId = new Types.ObjectId(req.userId!);
+      const ownerUserId = new Types.ObjectId(req.ownerUserId!);
       const { suggestions } = req.body as {
         suggestions: { category: string; suggested: number }[];
       };

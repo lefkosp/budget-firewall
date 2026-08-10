@@ -1,5 +1,6 @@
 import { Router, Response, NextFunction } from "express";
 import { authenticateToken } from "../middleware/auth";
+import { resolveOwner, requireOwnerSelf, requireCanApprove } from "../middleware/resolveOwner";
 import { AuthRequest } from "../types";
 import { Transaction } from "../models/Transaction";
 import { Types } from "mongoose";
@@ -44,9 +45,9 @@ function handleCsvUpload(req: AuthRequest, res: Response, next: NextFunction) {
   });
 }
 
-router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get("/", authenticateToken, resolveOwner, async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.userId!;
+    const userId = req.ownerUserId!;
     const {
       month,
       startDate,
@@ -187,9 +188,10 @@ router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
 router.get(
   "/categories",
   authenticateToken,
+  resolveOwner,
   async (req: AuthRequest, res: Response) => {
     try {
-      const userId = req.userId!;
+      const userId = req.ownerUserId!;
       const categories = await Transaction.distinct("computedCategory", {
         ownerUserId: new Types.ObjectId(userId),
       });
@@ -207,6 +209,8 @@ router.get(
 router.patch(
   "/:id",
   authenticateToken,
+  resolveOwner,
+  requireOwnerSelf,
   async (req: AuthRequest, res: Response) => {
     try {
       const { category, applyToAllFromMerchant } = req.body as {
@@ -219,7 +223,7 @@ router.patch(
       }
 
       const result = await setTransactionCategory(
-        req.userId!,
+        req.ownerUserId!,
         req.params.id,
         category,
         Boolean(applyToAllFromMerchant)
@@ -241,9 +245,11 @@ router.patch(
 router.post(
   "/recategorize",
   authenticateToken,
+  resolveOwner,
+  requireOwnerSelf,
   async (req: AuthRequest, res: Response) => {
     try {
-      const result = await recategorizeUserTransactions(req.userId!);
+      const result = await recategorizeUserTransactions(req.ownerUserId!);
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -254,11 +260,13 @@ router.post(
 router.post(
   "/import-csv",
   authenticateToken,
+  resolveOwner,
+  requireOwnerSelf,
   importRateLimiter,
   handleCsvUpload,
   async (req: AuthRequest, res: Response) => {
     const startTime = Date.now();
-    const userId = req.userId!;
+    const userId = req.ownerUserId!;
 
     console.log(`[CSV Import] ===== REQUEST RECEIVED =====`);
     console.log(`[CSV Import] User ID: ${userId}`);
@@ -330,17 +338,20 @@ router.post(
   }
 );
 
-// Approve/deny a flagged or pending transaction. The owner self-approves
-// for now -- same mechanics a collaborator will use later (Phase 6), just
-// with actorUserId always equal to ownerUserId until then.
+// Approve/deny a flagged or pending transaction. actorUserId (req.userId)
+// and ownerUserId (req.ownerUserId) diverge for real once a collaborator
+// with canApprove acts on someone else's transaction -- see
+// requireCanApprove and DEVELOPMENT_PLAN.md Phase 6.
 router.post(
   "/:id/approve",
   authenticateToken,
+  resolveOwner,
+  requireCanApprove,
   async (req: AuthRequest, res: Response) => {
     try {
       const { note } = req.body as { note?: string };
       const result = await decideTransaction(
-        req.userId!,
+        req.ownerUserId!,
         req.userId!,
         req.params.id,
         ApprovalDecision.APPROVED,
@@ -359,11 +370,13 @@ router.post(
 router.post(
   "/:id/deny",
   authenticateToken,
+  resolveOwner,
+  requireCanApprove,
   async (req: AuthRequest, res: Response) => {
     try {
       const { note } = req.body as { note?: string };
       const result = await decideTransaction(
-        req.userId!,
+        req.ownerUserId!,
         req.userId!,
         req.params.id,
         ApprovalDecision.DENIED,
@@ -382,9 +395,10 @@ router.post(
 router.get(
   "/:id/approvals",
   authenticateToken,
+  resolveOwner,
   async (req: AuthRequest, res: Response) => {
     try {
-      const history = await getTransactionApprovalHistory(req.userId!, req.params.id);
+      const history = await getTransactionApprovalHistory(req.ownerUserId!, req.params.id);
       res.json(
         history.map((a) => ({
           id: a._id.toString(),
