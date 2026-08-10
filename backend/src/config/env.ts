@@ -15,6 +15,10 @@ export const config = {
   accessTokenTtl: process.env.ACCESS_TOKEN_TTL || "15m",
   refreshTokenTtlDays: parseInt(process.env.REFRESH_TOKEN_TTL_DAYS || "30", 10),
   resetTokenTtlMinutes: parseInt(process.env.RESET_TOKEN_TTL_MINUTES || "30", 10),
+  // Longer than the password-reset TTL (§9 Phase 6) -- accepting a
+  // collaborator invite may require registering first, more friction than
+  // a password reset, so it needs a longer natural lifespan.
+  collaboratorInviteTtlDays: parseInt(process.env.COLLABORATOR_INVITE_TTL_DAYS || "14", 10),
 
   // Background sync cron (Phase 5 §7) — required only once the cron route
   // is mounted; validated there, not here, since it doesn't exist yet.

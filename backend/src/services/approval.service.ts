@@ -2,6 +2,7 @@ import { Types } from "mongoose";
 import { Transaction } from "../models/Transaction";
 import { Approval, ApprovalDecision, ApprovalTargetType } from "../models/Approval";
 import { ApprovalStatus } from "../models/Transaction";
+import { notifyCollaboratorDecision } from "./notification.service";
 
 export interface DecideTransactionResult {
   transaction: {
@@ -20,10 +21,10 @@ export interface DecideTransactionResult {
  * Records an approve/deny decision on a transaction and moves its status.
  * The decision itself is logged as an immutable Approval document rather
  * than just overwriting a field -- that's what makes "approval history"
- * possible, and it's the same mechanism a collaborator will use later to
- * approve/deny on the owner's behalf (see DEVELOPMENT_PLAN.md Phase 6):
- * actorUserId is already separate from ownerUserId here for that reason,
- * even though today they're always the same person.
+ * possible. actorUserId is separate from ownerUserId so a collaborator
+ * (see DEVELOPMENT_PLAN.md Phase 6, routes/transactions.ts's
+ * requireCanApprove guard) can act on the owner's behalf with the record
+ * showing who actually made the call.
  */
 export async function decideTransaction(
   ownerUserId: string,
@@ -53,6 +54,13 @@ export async function decideTransaction(
   transaction.approvalStatus =
     decision === ApprovalDecision.APPROVED ? ApprovalStatus.APPROVED : ApprovalStatus.DENIED;
   await transaction.save();
+
+  await notifyCollaboratorDecision(
+    ownerUserId,
+    actorUserId,
+    decision === ApprovalDecision.APPROVED ? "approved" : "denied",
+    transaction.merchantNameNormalized
+  );
 
   return {
     transaction: {

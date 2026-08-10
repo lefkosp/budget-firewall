@@ -5,7 +5,12 @@ import { rotateRefreshToken, revokeRefreshToken } from "../services/refreshToken
 import { createResetToken, redeemResetToken } from "../services/passwordReset.service";
 import { validate } from "../middleware/validate";
 import { passwordResetRateLimiter } from "../middleware/rateLimit";
-import { setAuthCookies, clearAuthCookies, REFRESH_COOKIE_NAME } from "../utils/authCookies";
+import {
+  setAuthCookies,
+  clearAuthCookies,
+  clearActingAsCookie,
+  REFRESH_COOKIE_NAME,
+} from "../utils/authCookies";
 import { config } from "../config/env";
 import { User } from "../models/User";
 
@@ -23,6 +28,9 @@ router.post(
       const { email, password, name } = req.body;
       const { user, accessToken, refreshToken } = await registerUser(email, password, name);
       setAuthCookies(res, accessToken, refreshToken);
+      // A fresh registration is a session boundary -- a shared machine
+      // shouldn't inherit a prior user's collaborator viewing state.
+      clearActingAsCookie(res);
       res.status(201).json({ user });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -38,6 +46,8 @@ router.post(
       const { email, password } = req.body;
       const { user, accessToken, refreshToken } = await loginUser(email, password);
       setAuthCookies(res, accessToken, refreshToken);
+      // See the /register comment -- a fresh login is a session boundary.
+      clearActingAsCookie(res);
       res.json({ user });
     } catch (error: any) {
       res.status(401).json({ error: error.message });

@@ -15,6 +15,7 @@ import { matchIntents } from "./intentMatch.service";
 import { DEFAULT_CATEGORY, isSpendingCategory } from "../constants/categories";
 import { startOfUTCMonth, endOfUTCMonth } from "../utils/monthWindow";
 import { findFuzzyDuplicate, DATE_WINDOW_DAYS } from "../utils/reconcile";
+import { notifyPendingApprovals } from "./notification.service";
 
 export async function syncAndProcessTransactions(
   userId: string,
@@ -147,6 +148,16 @@ export async function syncAndProcessTransactions(
     await applyRulesToTransactions(userId, newTransactions);
     console.log(`[Transaction Service] Rules applied successfully`);
     await applyIntentMatching(userId, newTransactions);
+
+    // Re-query rather than trust the in-memory newTransactions objects --
+    // neither applyRulesToTransactions nor applyIntentMatching mutates them,
+    // and intent matching can flip a rules-flagged PENDING/VIOLATION back to
+    // APPROVED, so their final status only exists in the DB at this point.
+    const pendingCount = await Transaction.countDocuments({
+      _id: { $in: newTransactions.map((t) => t._id) },
+      approvalStatus: { $in: [ApprovalStatus.PENDING, ApprovalStatus.VIOLATION] },
+    });
+    await notifyPendingApprovals(userId, pendingCount);
   } else {
     console.log(`[Transaction Service] No new transactions to process`);
   }
