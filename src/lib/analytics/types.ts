@@ -57,6 +57,8 @@ export interface CategoryStats {
   category: string;
   count: number;
   totalSpend: number;
+  /** totalSpend minus linked reimbursements -- see /reimbursements. */
+  netSpend: number;
 }
 
 export interface MerchantStats {
@@ -84,4 +86,5 @@ export interface AnalyticsBundle {
   merchantStats: MerchantStats[];
   stateStats: StateStats[];
   totalTransactions: number;
+  totalNetSpend: number;
 }

@@ -16,6 +16,7 @@ import {
   Upload,
   ChevronsUpDown,
   LogOut,
+  HandCoins,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { OwnerSwitcher } from "@/components/app/OwnerSwitcher";
@@ -56,6 +57,7 @@ const navGroups = [
       { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
       { href: "/subscriptions", label: "Subscriptions", icon: Repeat },
       { href: "/budgets", label: "Budgets", icon: PiggyBank },
+      { href: "/reimbursements", label: "Reimbursements", icon: HandCoins },
     ],
   },
   {

@@ -39,6 +39,7 @@ interface AttentionTransaction {
 interface DashboardStats {
   kpis: {
     totalSpend: number;
+    netSpend: number;
     violations: number;
     violationsSpend: number;
     pendingApprovals: number;
@@ -192,7 +193,19 @@ export default function DashboardPage() {
         <div className="grid gap-6 md:grid-cols-3">
           <StatCard
             label="Total Spend"
-            value={<Money cents={kpis.totalSpend} currency="EUR" className="text-primary" />}
+            value={
+              <div className="space-y-1">
+                <Money cents={kpis.totalSpend} currency="EUR" className="text-primary" />
+                {kpis.netSpend !== kpis.totalSpend && (
+                  <Link
+                    href="/reimbursements"
+                    className="block text-sm font-normal text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Money cents={kpis.netSpend} currency="EUR" /> net of reimbursements
+                  </Link>
+                )}
+              </div>
+            }
             className="animate-in fade-in slide-in-from-bottom-1 duration-300"
           />
           <StatCard

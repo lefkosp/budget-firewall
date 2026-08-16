@@ -37,6 +37,8 @@ export interface Transaction {
   isGambling: boolean;
   isCrypto: boolean;
   isBlacklisted: boolean;
+  isP2PTransfer?: boolean;
+  counterpartyName?: string;
   approvalStatus: string;
   matchedIntentId?: string;
   account: {
@@ -84,11 +86,20 @@ function baseColumns(
     id: "merchantNameNormalized",
     header: sortableHeader("Merchant"),
     cell: ({ row }) => {
-      const name = row.original.merchantNameNormalized || row.original.rawDescription;
+      const name = row.original.isP2PTransfer
+        ? row.original.counterpartyName || row.original.rawDescription
+        : row.original.merchantNameNormalized || row.original.rawDescription;
       return (
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="block max-w-56 truncate font-medium">{name}</span>
+            <span className="inline-flex items-center gap-1.5 max-w-56">
+              <span className="truncate font-medium">{name}</span>
+              {row.original.isP2PTransfer && (
+                <Badge variant="outline" className="shrink-0 text-[10px] py-0">
+                  P2P
+                </Badge>
+              )}
+            </span>
           </TooltipTrigger>
           <TooltipContent>{name}</TooltipContent>
         </Tooltip>
