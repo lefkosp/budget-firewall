@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: budget-firewall-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Fill in manually in the Render dashboard -- never committed here.
+      - key: MONGODB_URI
+        sync: false
+      # The deployed Netlify site's URL, e.g. https://your-site.netlify.app
+      # (no trailing slash). CORS is single-origin, so this must match
+      # exactly what the browser sends.
+      - key: FRONTEND_URL
+        sync: false
+      # Random signing secret for access/refresh tokens -- Render generates
+      # and stores this itself, it's never visible to fill in by hand.
+      - key: JWT_SECRET
+        generateValue: true
+      # Only needed once the /api/cron/sync-all Render Cron Job (see
+      # README's Background Sync section) is set up -- leave blank until
+      # then, or generate now and reuse the same value there.
+      - key: CRON_SECRET
+        generateValue: true
