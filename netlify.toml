@@ -5,5 +5,13 @@
   # 0/quiet from git diff => Netlify treats that as "nothing to build").
   ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- . ':!backend'"
 
+[build.environment]
+  # Safe to commit -- NEXT_PUBLIC_* vars are inlined into the client bundle
+  # at build time and shipped to every browser regardless, so there's
+  # nothing secret about this URL. No trailing slash: src/lib/api.ts
+  # concatenates this directly with endpoint paths that already start
+  # with "/", so a trailing slash here would produce "//api/...".
+  NEXT_PUBLIC_API_URL = "https://budget-firewall.onrender.com"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
