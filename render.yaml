@@ -13,11 +13,11 @@ services:
       # Fill in manually in the Render dashboard -- never committed here.
       - key: MONGODB_URI
         sync: false
-      # The deployed Netlify site's URL, e.g. https://your-site.netlify.app
-      # (no trailing slash). CORS is single-origin, so this must match
-      # exactly what the browser sends.
+      # Not a secret -- CORS is single-origin (backend/src/app.ts) and must
+      # match exactly what the browser sends as Origin: scheme + host, no
+      # trailing slash, no path.
       - key: FRONTEND_URL
-        sync: false
+        value: https://budget-firewall-lefkos.netlify.app
       # Random signing secret for access/refresh tokens -- Render generates
       # and stores this itself, it's never visible to fill in by hand.
       - key: JWT_SECRET
