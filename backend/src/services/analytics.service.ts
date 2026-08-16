@@ -16,6 +16,7 @@ import { monthKey } from "../utils/monthWindow";
  */
 
 export interface AnalyticsTransactionInput {
+  id?: string;
   bookedAt: string | Date;
   amount: number;
   currency: string;
@@ -26,6 +27,8 @@ export interface AnalyticsTransactionInput {
   product?: string;
   startedDate?: string | Date;
   balance?: number;
+  /** Cents already linked to a reimbursement (see reimbursement.service.ts). Nets against this transaction's own amount in Net Spend totals. */
+  reimbursedAmount?: number;
 }
 
 export interface TransactionTypeStats {
@@ -78,6 +81,8 @@ export interface CategoryStats {
   category: string;
   count: number;
   totalSpend: number;
+  /** totalSpend minus linked reimbursements -- see AnalyticsTransactionInput.reimbursedAmount. */
+  netSpend: number;
 }
 
 export interface MerchantStats {
@@ -105,6 +110,8 @@ export interface AnalyticsBundle {
   merchantStats: MerchantStats[];
   stateStats: StateStats[];
   totalTransactions: number;
+  /** Sum of categoryStats' netSpend -- gross spend minus linked reimbursements. */
+  totalNetSpend: number;
 }
 
 function onlySpending<T extends { computedCategory: string }>(transactions: T[]): T[] {
@@ -311,9 +318,25 @@ export function calculateCategoryStats(
 ): CategoryStats[] {
   // Spending breakdown, so income and transfers are excluded -- otherwise a
   // salary credit shows up as the biggest "category" on the chart.
-  return groupTotals(onlySpending(transactions), (tx) => tx.computedCategory || "Other").map(
-    (g) => ({ category: g.key, count: g.count, totalSpend: g.totalSpend })
-  );
+  const map = new Map<string, { count: number; totalSpend: number; netSpend: number }>();
+
+  for (const tx of onlySpending(transactions)) {
+    const key = tx.computedCategory || "Other";
+    const entry = map.get(key) ?? { count: 0, totalSpend: 0, netSpend: 0 };
+    const gross = Math.abs(tx.amount);
+    entry.count++;
+    entry.totalSpend += gross;
+    // Clamped at 0: a reimbursedAmount can never exceed the expense's own
+    // amount (reimbursement.service.ts enforces that when links are
+    // created), but the clamp keeps this safe even if that invariant is
+    // ever violated by stale data.
+    entry.netSpend += Math.max(0, gross - (tx.reimbursedAmount ?? 0));
+    map.set(key, entry);
+  }
+
+  return Array.from(map.entries())
+    .map(([category, stats]) => ({ category, ...stats }))
+    .sort((a, b) => b.totalSpend - a.totalSpend);
 }
 
 export function calculateMerchantStats(
@@ -352,6 +375,8 @@ export function calculateStateStats(
 export function buildAnalyticsBundle(
   transactions: AnalyticsTransactionInput[]
 ): AnalyticsBundle {
+  const categoryStats = calculateCategoryStats(transactions);
+
   return {
     transactionTypeStats: calculateTransactionTypeStats(transactions),
     productStats: calculateProductStats(transactions),
@@ -359,9 +384,10 @@ export function buildAnalyticsBundle(
     feeStats: calculateFeeStats(transactions),
     balanceStats: calculateBalanceStats(transactions),
     currencyStats: calculateCurrencyStats(transactions),
-    categoryStats: calculateCategoryStats(transactions),
+    categoryStats,
     merchantStats: calculateMerchantStats(transactions),
     stateStats: calculateStateStats(transactions),
     totalTransactions: transactions.length,
+    totalNetSpend: categoryStats.reduce((sum, c) => sum + c.netSpend, 0),
   };
 }

@@ -116,7 +116,25 @@ describe("calculateCategoryStats", () => {
       tx({ computedCategory: "Fees", amount: -500 }),
     ]);
 
-    expect(result).toEqual([{ category: "Groceries", count: 1, totalSpend: 2000 }]);
+    expect(result).toEqual([{ category: "Groceries", count: 1, totalSpend: 2000, netSpend: 2000 }]);
+  });
+
+  it("nets a linked reimbursement off the expense's own category", () => {
+    const result = calculateCategoryStats([
+      tx({ computedCategory: "Eating Out", amount: -5000, reimbursedAmount: 3000 }),
+    ]);
+
+    expect(result).toEqual([
+      { category: "Eating Out", count: 1, totalSpend: 5000, netSpend: 2000 },
+    ]);
+  });
+
+  it("clamps netSpend at zero if a reimbursement somehow exceeds the expense", () => {
+    const result = calculateCategoryStats([
+      tx({ computedCategory: "Eating Out", amount: -5000, reimbursedAmount: 9000 }),
+    ]);
+
+    expect(result[0].netSpend).toBe(0);
   });
 });
 
@@ -220,6 +238,7 @@ describe("buildAnalyticsBundle", () => {
         "productStats",
         "stateStats",
         "timeStats",
+        "totalNetSpend",
         "totalTransactions",
         "transactionTypeStats",
       ].sort()

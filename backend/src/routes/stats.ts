@@ -4,8 +4,13 @@ import { authenticateToken } from "../middleware/auth";
 import { resolveOwner } from "../middleware/resolveOwner";
 import { AuthRequest } from "../types";
 import { Transaction } from "../models/Transaction";
+import { ReimbursementLink } from "../models/ReimbursementLink";
 import { NON_SPEND_CATEGORIES } from "../constants/categories";
 import { buildAnalyticsBundle } from "../services/analytics.service";
+import { loadLinkedAmountsByExpense } from "../services/reimbursement.service";
+
+/** Looked up by name rather than hardcoded, so the $lookup below can't drift from Mongoose's actual pluralized collection name. */
+const REIMBURSEMENT_LINKS_COLLECTION = ReimbursementLink.collection.name;
 
 const router = Router();
 
@@ -13,6 +18,8 @@ const RECENT_LIST_SIZE = 5;
 
 interface KpiRow {
   totalSpend: number;
+  /** totalSpend minus linked reimbursements -- see ReimbursementLink. */
+  netSpend: number;
   violations: number;
   violationsSpend: number;
   pendingApprovals: number;
@@ -23,6 +30,7 @@ interface KpiRow {
 
 const EMPTY_KPIS: KpiRow = {
   totalSpend: 0,
+  netSpend: 0,
   violations: 0,
   violationsSpend: 0,
   pendingApprovals: 0,
@@ -45,6 +53,26 @@ async function loadKpis(ownerUserId: Types.ObjectId): Promise<KpiRow> {
     // totalTransactions) deliberately stay currency-agnostic -- a flagged
     // transaction is still flagged regardless of what currency it's in.
     { $match: { ownerUserId } },
+    // Correlated lookup so netSpend can subtract each transaction's own
+    // linked-reimbursement total without a second round trip -- fine at this
+    // app's transaction volumes (see routes/stats.ts's /analytics comment on
+    // when to revisit that assumption).
+    {
+      $lookup: {
+        from: REIMBURSEMENT_LINKS_COLLECTION,
+        let: { txId: "$_id" },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$expenseTransactionId", "$$txId"] } } },
+          { $group: { _id: null, total: { $sum: "$linkedAmount" } } },
+        ],
+        as: "_reimbursements",
+      },
+    },
+    {
+      $addFields: {
+        reimbursedAmount: { $ifNull: [{ $arrayElemAt: ["$_reimbursements.total", 0] }, 0] },
+      },
+    },
     {
       $group: {
         _id: null,
@@ -59,6 +87,20 @@ async function loadKpis(ownerUserId: Types.ObjectId): Promise<KpiRow> {
               },
               0,
               { $abs: "$amount" },
+            ],
+          },
+        },
+        netSpend: {
+          $sum: {
+            $cond: [
+              {
+                $or: [
+                  { $in: ["$computedCategory", NON_SPEND_CATEGORIES] },
+                  { $ne: ["$currency", "EUR"] },
+                ],
+              },
+              0,
+              { $max: [0, { $subtract: [{ $abs: "$amount" }, "$reimbursedAmount"] }] },
             ],
           },
         },
@@ -171,13 +213,21 @@ router.get("/analytics", authenticateToken, resolveOwner, async (req: AuthReques
 
     // EUR-only v1: every chart here sums amount, so the dataset is scoped to
     // EUR up front rather than filtering currency inside each calculation.
-    const transactions = await Transaction.find({ ownerUserId, currency: "EUR" })
-      .select(
-        "bookedAt amount currency rawDescription merchantNameNormalized computedCategory transactionType product startedDate balance"
-      )
-      .lean();
+    const [transactions, linkedByExpense] = await Promise.all([
+      Transaction.find({ ownerUserId, currency: "EUR" })
+        .select(
+          "bookedAt amount currency rawDescription merchantNameNormalized computedCategory transactionType product startedDate balance"
+        )
+        .lean(),
+      loadLinkedAmountsByExpense(req.ownerUserId!),
+    ]);
 
-    res.json(buildAnalyticsBundle(transactions));
+    const withReimbursements = transactions.map((tx) => ({
+      ...tx,
+      reimbursedAmount: linkedByExpense.get(tx._id.toString()) ?? 0,
+    }));
+
+    res.json(buildAnalyticsBundle(withReimbursements));
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
