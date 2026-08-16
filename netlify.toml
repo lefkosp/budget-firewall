@@ -1,0 +1,9 @@
+[build]
+  command = "npm run build"
+  # backend/ is a separate Express service, not part of this Netlify site --
+  # skip the build entirely when a commit only touches files under it (exit
+  # 0/quiet from git diff => Netlify treats that as "nothing to build").
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- . ':!backend'"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
