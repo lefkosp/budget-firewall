@@ -165,6 +165,43 @@
   }
 }
 
+/*
+ * Themed scrollbars, applied once here rather than per-component -- both
+ * mechanisms below are effectively global on their own. `scrollbar-color`
+ * inherits, so setting it on :root covers every scrollable element in one
+ * declaration; `::-webkit-scrollbar` doesn't inherit, but `*` reaches every
+ * element that ends up scrollable anyway (page-level overflow-auto panes,
+ * the DataTable wrapper, dialog/sheet/dropdown/select content). Colors stay
+ * on the same quiet, near-neutral chrome tokens as everything else in the
+ * "Signal Ledger" palette (see the comment above :root) -- a scrollbar isn't
+ * a signal, so it doesn't get one of the vivid tokens.
+ */
+:root {
+  color-scheme: dark;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
