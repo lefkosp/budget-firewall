@@ -10,7 +10,7 @@ import { Intent, IntentStatus } from "../models/Intent";
 import { normalizeMerchant } from "../utils/normalizeMerchant";
 import { evaluateTransaction, BudgetSnapshot } from "../utils/evaluateRules";
 import { ensureUserDefaults } from "./user.service";
-import { categorizeTransaction, loadMerchantCategoryMap } from "./categorize.service";
+import { categorizeTransaction, classifyTransfer, loadMerchantCategoryMap } from "./categorize.service";
 import { matchIntents } from "./intentMatch.service";
 import { DEFAULT_CATEGORY, isSpendingCategory } from "../constants/categories";
 import { startOfUTCMonth, endOfUTCMonth } from "../utils/monthWindow";
@@ -49,16 +49,18 @@ export async function syncAndProcessTransactions(
 
   for (const providerTx of providerTransactions) {
     const merchantNameNormalized = normalizeMerchant(providerTx.rawDescription);
-    const computedCategory = categorizeTransaction(
-      {
-        merchantNameNormalized,
-        rawDescription: providerTx.rawDescription,
-        amount: providerTx.amount,
-        transactionType: providerTx.transactionType,
-        providerCategory: providerTx.providerCategory,
-      },
-      merchantMap
-    );
+    const categorizeInput = {
+      merchantNameNormalized,
+      rawDescription: providerTx.rawDescription,
+      amount: providerTx.amount,
+      transactionType: providerTx.transactionType,
+      providerCategory: providerTx.providerCategory,
+    };
+    const computedCategory = categorizeTransaction(categorizeInput, merchantMap);
+    const { isP2PTransfer, counterpartyName } =
+      computedCategory === "Transfers"
+        ? classifyTransfer(categorizeInput)
+        : { isP2PTransfer: false, counterpartyName: null };
 
     // Check if transaction already exists
     const existing = await Transaction.findOne({
@@ -131,6 +133,8 @@ export async function syncAndProcessTransactions(
       startedDate: providerTx.startedDate,
       balance: providerTx.balance,
       approvalStatus: ApprovalStatus.NEUTRAL,
+      isP2PTransfer,
+      counterpartyName: counterpartyName || undefined,
     });
 
     newTransactions.push(transaction);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { categorizeTransaction } from "./categorize.service";
+import { categorizeTransaction, classifyTransfer } from "./categorize.service";
 import { normalizeMerchant } from "../utils/normalizeMerchant";
 
 /** Mirrors how the import pipeline calls it: normalize, then categorize. */
@@ -136,6 +136,59 @@ describe("categorizeTransaction", () => {
           map
         )
       ).toBe("Subscriptions");
+    });
+  });
+});
+
+describe("classifyTransfer", () => {
+  function classify(rawDescription: string, amount = -1000) {
+    return classifyTransfer({
+      merchantNameNormalized: normalizeMerchant(rawDescription),
+      rawDescription,
+      amount,
+    });
+  }
+
+  it("identifies P2P transfers and extracts the counterparty's name", () => {
+    expect(classify("Transfer from Family Member A", 1400)).toEqual({
+      isP2PTransfer: true,
+      counterpartyName: "Family Member A",
+    });
+    expect(classify("Transfer to Friend B", -1250)).toEqual({
+      isP2PTransfer: true,
+      counterpartyName: "Friend B",
+    });
+    expect(classify("Sent from Jane Doe", 500)).toEqual({
+      isP2PTransfer: true,
+      counterpartyName: "Jane Doe",
+    });
+  });
+
+  it("does not treat internal pocket/vault/top-up moves as P2P", () => {
+    expect(classify("To pocket EUR Tomorrowland from EUR", 69700)).toEqual({
+      isP2PTransfer: false,
+      counterpartyName: null,
+    });
+    expect(classify("Pocket Withdrawal", -5000)).toEqual({
+      isP2PTransfer: false,
+      counterpartyName: null,
+    });
+    expect(classify("To Balanced Bundle portfolio", -150)).toEqual({
+      isP2PTransfer: false,
+      counterpartyName: null,
+    });
+    expect(classify("Top-up by *8924", 12000)).toEqual({
+      isP2PTransfer: false,
+      counterpartyName: null,
+    });
+  });
+
+  it("treats an unrecognized transfer description as internal, not P2P", () => {
+    // Conservative default: only a description that actually names a
+    // counterparty should ever drive reimbursement-matching suggestions.
+    expect(classify("Currency conversion", -2000)).toEqual({
+      isP2PTransfer: false,
+      counterpartyName: null,
     });
   });
 });

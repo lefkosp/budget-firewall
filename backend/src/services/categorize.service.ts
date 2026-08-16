@@ -241,6 +241,50 @@ export function categorizeTransaction(
   return DEFAULT_CATEGORY;
 }
 
+export interface TransferClassification {
+  /** Money to/from another Revolut user (a friend, family member) -- as
+   * opposed to a move between the user's own pockets/vaults/accounts. */
+  isP2PTransfer: boolean;
+  /** The other person's name, extracted from "Transfer from/to X" or "Sent
+   * from X". Null for internal transfers, where there's no counterparty. */
+  counterpartyName: string | null;
+}
+
+/** Internal moves always name the mechanism, never a person. */
+const INTERNAL_TRANSFER_PATTERNS = [
+  /\bpocket\b/, /\bvault\b/, /\bportfolio\b/, /\bexchange(d)?\b/,
+  /\btop[\s-]?up\b/, /\bwithdrawal\b/, /\bsavings\b/, /\bmoved\b/,
+];
+
+/** Revolut's literal phrasing for a person-to-person transfer. */
+const P2P_TRANSFER_PATTERNS = [/^transfer (?:from|to) (.+)$/i, /^sent from (.+)$/i];
+
+/**
+ * Sub-classifies a transaction already categorized "Transfers" into a
+ * person-to-person transfer (money to/from another Revolut user -- the "I
+ * fronted money for a friend" case that reimbursement linking targets) vs an
+ * internal move between the user's own pockets/vaults/accounts. Only
+ * meaningful for that category -- callers should check
+ * `computedCategory === "Transfers"` before using the result.
+ */
+export function classifyTransfer(input: CategorizeInput): TransferClassification {
+  const raw = (input.rawDescription || "").trim();
+  const haystack = raw.toLowerCase();
+
+  if (matchesAny(haystack, INTERNAL_TRANSFER_PATTERNS)) {
+    return { isP2PTransfer: false, counterpartyName: null };
+  }
+
+  for (const pattern of P2P_TRANSFER_PATTERNS) {
+    const match = raw.match(pattern);
+    if (match) {
+      return { isP2PTransfer: true, counterpartyName: match[1].trim() };
+    }
+  }
+
+  return { isP2PTransfer: false, counterpartyName: null };
+}
+
 /**
  * Loads a user's manual merchant->category corrections as a lookup map.
  * Load once per import/recategorize batch and pass to categorizeTransaction
@@ -279,7 +323,7 @@ export async function recategorizeUserTransactions(
 ): Promise<RecategorizeResult> {
   const [transactions, merchantMap] = await Promise.all([
     Transaction.find({ ownerUserId: new Types.ObjectId(userId) }).select(
-      "merchantNameNormalized rawDescription amount transactionType providerCategory computedCategory categoryOverridden"
+      "merchantNameNormalized rawDescription amount transactionType providerCategory computedCategory categoryOverridden isP2PTransfer counterpartyName"
     ),
     loadMerchantCategoryMap(userId),
   ]);
@@ -294,24 +338,30 @@ export async function recategorizeUserTransactions(
     }
 
     const merchantNameNormalized = normalizeMerchant(tx.rawDescription);
-    const category = categorizeTransaction(
-      {
-        merchantNameNormalized,
-        rawDescription: tx.rawDescription,
-        amount: tx.amount,
-        transactionType: tx.transactionType,
-        providerCategory: tx.providerCategory,
-      },
-      merchantMap
-    );
+    const categorizeInput = {
+      merchantNameNormalized,
+      rawDescription: tx.rawDescription,
+      amount: tx.amount,
+      transactionType: tx.transactionType,
+      providerCategory: tx.providerCategory,
+    };
+    const category = categorizeTransaction(categorizeInput, merchantMap);
+    const { isP2PTransfer, counterpartyName } =
+      category === "Transfers"
+        ? classifyTransfer(categorizeInput)
+        : { isP2PTransfer: false, counterpartyName: null };
 
     if (
       category !== tx.computedCategory ||
-      merchantNameNormalized !== tx.merchantNameNormalized
+      merchantNameNormalized !== tx.merchantNameNormalized ||
+      isP2PTransfer !== tx.isP2PTransfer ||
+      counterpartyName !== (tx.counterpartyName ?? null)
     ) {
       await Transaction.findByIdAndUpdate(tx._id, {
         computedCategory: category,
         merchantNameNormalized,
+        isP2PTransfer,
+        counterpartyName: counterpartyName || undefined,
       });
       updated++;
     }

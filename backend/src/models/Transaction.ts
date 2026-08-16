@@ -34,6 +34,9 @@ export interface ITransaction extends Document {
   approvalRequired: boolean;
   approvalStatus: ApprovalStatus;
   matchedIntentId?: Types.ObjectId;
+  /** Set when computedCategory is "Transfers" -- see classifyTransfer(). */
+  isP2PTransfer: boolean;
+  counterpartyName?: string;
   createdAt: Date;
 }
 
@@ -128,6 +131,13 @@ const TransactionSchema = new Schema<ITransaction>(
     matchedIntentId: {
       type: Schema.Types.ObjectId,
       ref: "Intent",
+    },
+    isP2PTransfer: {
+      type: Boolean,
+      default: false,
+    },
+    counterpartyName: {
+      type: String,
     },
   },
   {
