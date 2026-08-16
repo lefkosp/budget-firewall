@@ -20,6 +20,7 @@ import intentsRoutes from "./routes/intents";
 import cronRoutes from "./routes/cron";
 import collaboratorsRoutes from "./routes/collaborators";
 import notificationsRoutes from "./routes/notifications";
+import reimbursementsRoutes from "./routes/reimbursements";
 
 const app = express();
 
@@ -58,6 +59,7 @@ app.use("/api/intents", intentsRoutes);
 app.use("/api/cron", cronRoutes);
 app.use("/api/collaborators", collaboratorsRoutes);
 app.use("/api/notifications", notificationsRoutes);
+app.use("/api/reimbursements", reimbursementsRoutes);
 
 // Error handling middleware (must be last)
 app.use(errorHandler);
